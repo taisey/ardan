@@ -69,24 +69,28 @@ start_date | end_date | fixed_date | status | metadata
 ```
 
 - `start_date` と `end_date` は `YYYY/MM/DD` の候補範囲です。
-- `status` が空欄の行は未開始、`in_progress` は投票中、`done` は確定済みです。
+- `status` が空欄の行は未開始、`in_progress` は投票中、`done` は確定済み、`canceled` は期限切れで取り消し済みです。
 - `metadata` は拡張用JSONです。現在はDiscordスレッドIDと日付ごとのPollメッセージIDを保存します。
 
 ### 作成処理: `/create_recording_date_poll` とBatch
 
-Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。対象候補は、`end_date` が今日以降の行から `start_date` が最も新しい1行です。
+Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `in_progress` 行を確認します。`end_date` が昨日以前の行は `canceled` に更新し、今日以降の `in_progress` 行が1件でもあれば新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
 
 ```text
 対象行なし または end_date < 今日
   └─ skip
 
-最新の対象行が status 空欄
+期限内の in_progress 行あり
+  └─ skip
+
+期限切れの in_progress 行あり
+  └─ status を canceled に更新して次の判定へ
+
+対象行が status 空欄
   └─ status を in_progress に更新
        └─ ロールmention・タイトル・候補範囲の親メッセージを投稿
             └─ そのスレッドへ各候補日の○・△・× Pollを作成
 
-最新の対象行が in_progress または done
-  └─ skip
 ```
 
 Pollは各日付につき単一選択で、○（参加可能）・△（調整可）・×（不可）を選べます。Pollの回答期間とスレッドの自動アーカイブは7日間です。

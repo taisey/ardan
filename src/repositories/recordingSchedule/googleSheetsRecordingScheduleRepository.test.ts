@@ -20,14 +20,16 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
     ]);
   });
 
-  it('finds the newest non-expired schedule even when older rows are present', async () => {
+  it('finds the unstarted non-expired schedule with the earliest end date', async () => {
     const sheets = client([
-      ['2026/09/01', '2026/09/15', '', ''],
-      ['2026/10/01', '2026/10/15', '', ''],
+      ['2026/09/01', '2026/10/15', '', ''],
+      ['2026/10/01', '2026/10/20', '', ''],
       ['2026/08/01', '2026/10/01', '2026/09/18', 'done'],
+      ['2026/09/15', '2026/10/10', '', 'in_progress'],
+      ['2026/09/10', '2026/10/05', '', ''],
     ]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
-    await expect(repository.findLatestNonExpired('2026/10/01')).resolves.toEqual({ startDate: '2026/10/01', endDate: '2026/10/15' });
+    await expect(repository.findLatestNonExpired('2026/10/01')).resolves.toEqual({ startDate: '2026/09/10', endDate: '2026/10/05' });
   });
 
   it('completes the newest in-progress row', async () => {

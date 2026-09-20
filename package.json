@@ -1,0 +1,30 @@
+{
+  "name": "ardan-recording-scheduler",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "generate": "openapi --input src/spec/openapi.yaml --output src/generated --client fetch --useOptions && node scripts/patchGeneratedImports.mjs",
+    "clean": "rm -rf dist",
+    "build": "npm run generate && tsc -p tsconfig.json",
+    "typecheck": "npm run generate && tsc --noEmit",
+    "start": "node --env-file-if-exists=.env dist/server/main.js",
+    "dev": "tsx --env-file-if-exists=.env src/server/main.ts",
+    "batch:create-recording-date-poll": "tsx --env-file-if-exists=.env src/batch/createRecordingDatePoll.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "googleapis": "144.0.0",
+    "openapi-typescript-codegen": "0.29.0",
+    "tweetnacl": "1.0.3"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.3",
+    "@types/node": "22.15.3",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3",
+    "vitest": "3.1.2"
+  }
+}

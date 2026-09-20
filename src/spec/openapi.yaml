@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: Recording scheduling API
+  version: 1.0.0
+paths:
+  /recording-date-polls:
+    post:
+      operationId: createRecordingDatePoll
+      tags: [Scheduling]
+      parameters:
+        - $ref: '#/components/parameters/InternalApiKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRecordingDatePollRequest' }
+      responses:
+        '200':
+          description: No poll was created because the latest schedule is already processed or absent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateRecordingDatePollResponse' }
+        '201':
+          description: Poll created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateRecordingDatePollResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  parameters:
+    InternalApiKey:
+      name: x-internal-api-key
+      in: header
+      required: true
+      schema: { type: string }
+  schemas:
+    CreateRecordingDatePollRequest:
+      type: object
+      additionalProperties: false
+      required: [title, candidateDates]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        candidateDates:
+          type: array
+          minItems: 2
+          maxItems: 10
+          items: { type: string, format: date }
+    CreateRecordingDatePollResponse:
+      type: object
+      required: [created]
+      properties:
+        created: { type: boolean }
+        messageId: { type: string }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+  responses:
+    ValidationError:
+      description: Invalid request
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Internal caller authentication failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Request conflicts with the current poll state
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

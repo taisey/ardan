@@ -12,10 +12,10 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
 
   async findLatestNonExpired(today: string): Promise<RecordingSchedule | null> {
     const candidates = (await this.readSchedules())
-      .filter(({ schedule }) => schedule.endDate >= today)
-      .sort((left, right) => right.schedule.startDate.localeCompare(left.schedule.startDate));
-    if (candidates.length > 1 && candidates[0].schedule.startDate === candidates[1].schedule.startDate) {
-      throw new Error('Multiple non-expired recording schedules share the latest startDate');
+      .filter(({ schedule }) => schedule.status === undefined && schedule.endDate >= today)
+      .sort((left, right) => left.schedule.endDate.localeCompare(right.schedule.endDate));
+    if (candidates.length > 1 && candidates[0].schedule.endDate === candidates[1].schedule.endDate) {
+      throw new Error('Multiple unstarted non-expired recording schedules share the earliest endDate');
     }
     return candidates[0]?.schedule ?? null;
   }

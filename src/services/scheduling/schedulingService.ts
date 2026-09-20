@@ -1,12 +1,14 @@
-export type LocalDate = string;
-
-export type CreateRecordingDatePoll = {
-  title: string;
-  candidateDates: LocalDate[];
-};
-
 export type CreatedRecordingDatePoll = { created: boolean; messageId?: string };
 
+export type AvailabilityResult = {
+  date: string;
+  available: string[];
+  tentative: string[];
+  unavailable: string[];
+};
+
 export interface SchedulingService {
-  createRecordingDatePoll(input: CreateRecordingDatePoll): Promise<CreatedRecordingDatePoll>;
+  createRecordingDatePoll(): Promise<CreatedRecordingDatePoll>;
+  aggregatePollResults(): Promise<AvailabilityResult[]>;
+  completeRecordingDate(fixDate: string): Promise<void>;
 }

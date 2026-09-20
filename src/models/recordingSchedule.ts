@@ -5,6 +5,7 @@ export interface RecordingSchedule {
   endDate: string;
   fixDate?: string;
   status?: RecordingScheduleStatus;
+  metadata?: Record<string, unknown>;
 }
 
 export function assertValidRecordingSchedule(schedule: RecordingSchedule): void {

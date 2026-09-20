@@ -19,6 +19,13 @@ export class GoogleSheetsClient {
     return (response.data.values ?? []).map((row) => row.map((value) => String(value)));
   }
 
+  async getSheetTitle(sheetGid: number): Promise<string> {
+    const response = await this.sheets.spreadsheets.get({ spreadsheetId: this.spreadsheetId });
+    const title = response.data.sheets?.find((sheet) => sheet.properties?.sheetId === sheetGid)?.properties?.title;
+    if (!title) throw new Error(`Google Sheet tab not found for gid: ${sheetGid}`);
+    return title;
+  }
+
   async appendRow(range: string, values: string[]): Promise<void> {
     await this.sheets.spreadsheets.values.append({
       spreadsheetId: this.spreadsheetId,

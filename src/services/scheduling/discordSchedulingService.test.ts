@@ -2,36 +2,26 @@ import { describe, expect, it, vi } from 'vitest';
 import { candidateDatesFor, DiscordSchedulingService } from './discordSchedulingService.js';
 
 describe('DiscordSchedulingService', () => {
-  it('skips a poll while the latest schedule is in progress', async () => {
+  it('skips a poll when no schedule can be claimed', async () => {
     const discord = { createAvailabilityPoll: vi.fn() };
-    const schedules = { findLatestNonExpired: vi.fn().mockResolvedValue({ status: 'in_progress' }), findLatestInProgress: vi.fn(), markInProgress: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
+    const schedules = { claimNextPollSchedule: vi.fn().mockResolvedValue(null), findLatestInProgress: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
     const service = new DiscordSchedulingService(discord as never, schedules, () => '2026/10/01');
     await expect(service.createRecordingDatePoll())
       .resolves.toEqual({ created: false });
     expect(discord.createAvailabilityPoll).not.toHaveBeenCalled();
   });
 
-  it('skips a poll while the latest schedule is done', async () => {
-    const discord = { createAvailabilityPoll: vi.fn() };
-    const schedules = { findLatestNonExpired: vi.fn().mockResolvedValue({ status: 'done', fixedDate: '2026/10/08' }), findLatestInProgress: vi.fn(), markInProgress: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
-    const service = new DiscordSchedulingService(discord as never, schedules, () => '2026/10/01');
-    await expect(service.createRecordingDatePoll())
-      .resolves.toEqual({ created: false });
-    expect(discord.createAvailabilityPoll).not.toHaveBeenCalled();
-  });
-
-  it('marks the latest unstarted schedule in progress before posting to Discord', async () => {
+  it('posts a poll for the schedule claimed before posting to Discord', async () => {
     const discord = {
       createAvailabilityThread: vi.fn().mockResolvedValue({ threadId: 'thread1' }),
       createAvailabilityPoll: vi.fn().mockResolvedValueOnce({ messageId: 'm1' }).mockResolvedValueOnce({ messageId: 'm2' }).mockResolvedValueOnce({ messageId: 'm3' }),
     };
-    const schedule = { startDate: '2026/10/01', endDate: '2026/10/03' };
-    const schedules = { findLatestNonExpired: vi.fn().mockResolvedValue(schedule), findLatestInProgress: vi.fn(), markInProgress: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
+    const schedule = { startDate: '2026/10/01', endDate: '2026/10/03', status: 'in_progress' as const };
+    const schedules = { claimNextPollSchedule: vi.fn().mockResolvedValue(schedule), findLatestInProgress: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
     const service = new DiscordSchedulingService(discord as never, schedules, () => '2026/10/01');
     await expect(service.createRecordingDatePoll())
       .resolves.toEqual({ created: true });
-    expect(schedules.findLatestNonExpired).toHaveBeenCalledWith('2026/10/01');
-    expect(schedules.markInProgress).toHaveBeenCalledWith(schedule);
+    expect(schedules.claimNextPollSchedule).toHaveBeenCalledWith('2026/10/01');
     expect(discord.createAvailabilityThread).toHaveBeenCalledWith('2026/10/01', '2026/10/03');
     expect(discord.createAvailabilityPoll).toHaveBeenNthCalledWith(1, '2026/10/01', 'thread1');
     expect(discord.createAvailabilityPoll).toHaveBeenNthCalledWith(2, '2026/10/02', 'thread1');

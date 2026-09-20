@@ -10,25 +10,29 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
     private readonly sheetGid: number,
   ) {}
 
-  async findLatestNonExpired(today: string): Promise<RecordingSchedule | null> {
-    const candidates = (await this.readSchedules())
+  async claimNextPollSchedule(today: string): Promise<RecordingSchedule | null> {
+    const schedules = await this.readSchedules();
+    const title = await this.getSheetTitle();
+
+    for (const expired of schedules.filter(({ schedule }) => schedule.status === 'in_progress' && schedule.endDate < today)) {
+      await this.sheets.updateRow(`${title}!A${expired.rowNumber}:E${expired.rowNumber}`, this.toRow({ ...expired.schedule, status: 'canceled' }));
+    }
+
+    if (schedules.some(({ schedule }) => schedule.status === 'in_progress' && schedule.endDate >= today)) {
+      return null;
+    }
+
+    const candidates = schedules
       .filter(({ schedule }) => schedule.status === undefined && schedule.endDate >= today)
       .sort((left, right) => left.schedule.endDate.localeCompare(right.schedule.endDate));
     if (candidates.length > 1 && candidates[0].schedule.endDate === candidates[1].schedule.endDate) {
       throw new Error('Multiple unstarted non-expired recording schedules share the earliest endDate');
     }
-    return candidates[0]?.schedule ?? null;
-  }
-
-  async markInProgress(schedule: RecordingSchedule): Promise<void> {
-    assertValidRecordingSchedule(schedule);
-    if (schedule.status !== undefined) throw new Error('Only an unstarted schedule can be marked in_progress');
-    const match = (await this.readSchedules()).find(({ schedule: stored }) =>
-      stored.startDate === schedule.startDate && stored.endDate === schedule.endDate && stored.status === undefined,
-    );
-    if (!match) throw new Error('The selected unstarted recording schedule no longer exists');
-    const title = await this.getSheetTitle();
-    await this.sheets.updateRow(`${title}!A${match.rowNumber}:E${match.rowNumber}`, this.toRow({ ...schedule, status: 'in_progress' }));
+    const candidate = candidates[0];
+    if (!candidate) return null;
+    const inProgress: RecordingSchedule = { ...candidate.schedule, status: 'in_progress' };
+    await this.sheets.updateRow(`${title}!A${candidate.rowNumber}:E${candidate.rowNumber}`, this.toRow(inProgress));
+    return inProgress;
   }
 
   async findLatestInProgress(): Promise<RecordingSchedule | null> {

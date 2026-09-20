@@ -37,10 +37,9 @@ export class DiscordSchedulingService implements SchedulingService {
   ) {}
 
   async createRecordingDatePoll(): Promise<CreatedRecordingDatePoll> {
-    const schedule = await this.recordingSchedules.findLatestNonExpired(this.today());
-    if (!schedule || schedule.status === 'in_progress' || schedule.status === 'done') return { created: false };
+    const schedule = await this.recordingSchedules.claimNextPollSchedule(this.today());
+    if (!schedule) return { created: false };
     const candidateDates = candidateDatesFor(schedule.startDate, schedule.endDate);
-    await this.recordingSchedules.markInProgress(schedule);
     const { threadId } = await this.discord.createAvailabilityThread(schedule.startDate, schedule.endDate);
     const polls: AvailabilityPoll[] = [];
     await this.recordingSchedules.saveMetadata(schedule, this.withPolls(schedule.metadata, polls, threadId));

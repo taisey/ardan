@@ -1,4 +1,4 @@
-export type RecordingScheduleStatus = 'in_progress' | 'done';
+export type RecordingScheduleStatus = 'in_progress' | 'done' | 'canceled';
 
 export interface RecordingSchedule {
   startDate: string;
@@ -9,8 +9,8 @@ export interface RecordingSchedule {
 }
 
 export function assertValidRecordingSchedule(schedule: RecordingSchedule): void {
-  if (schedule.status !== undefined && schedule.status !== 'in_progress' && schedule.status !== 'done') {
-    throw new Error('status must be in_progress or done');
+  if (schedule.status !== undefined && schedule.status !== 'in_progress' && schedule.status !== 'done' && schedule.status !== 'canceled') {
+    throw new Error('status must be in_progress, done, or canceled');
   }
   if (!isLocalDate(schedule.startDate) || !isLocalDate(schedule.endDate)) {
     throw new Error('startDate and endDate must be YYYY/MM/DD calendar dates');
@@ -21,6 +21,9 @@ export function assertValidRecordingSchedule(schedule: RecordingSchedule): void 
   }
   if (schedule.status === 'done' && !isLocalDate(schedule.fixedDate ?? '')) {
     throw new Error('done schedules require a YYYY/MM/DD fixedDate');
+  }
+  if (schedule.status === 'canceled' && schedule.fixedDate) {
+    throw new Error('canceled schedules must not have fixedDate');
   }
 }
 

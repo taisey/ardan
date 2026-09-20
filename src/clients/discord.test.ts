@@ -31,7 +31,7 @@ describe('DiscordClient', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'message' }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await new DiscordClient('token', 'channel', 'role').createAvailabilityPoll('2026-09-21', 'thread');
+    await new DiscordClient('token', 'channel', 'role').createAvailabilityPoll('2026/09/21', 'thread');
 
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
       poll: { question: { text: '次回録音の日程調整: 2026/09/21（月）' } },
@@ -44,7 +44,7 @@ describe('DiscordClient', () => {
       .mockResolvedValueOnce(jsonResponse({ id: 'thread' }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(new DiscordClient('token', 'channel', 'role').createAvailabilityThread('2026-09-21', '2026-09-27'))
+    await expect(new DiscordClient('token', 'channel', 'role').createAvailabilityThread('2026/09/21', '2026/09/27'))
       .resolves.toEqual({ threadId: 'thread' });
 
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({

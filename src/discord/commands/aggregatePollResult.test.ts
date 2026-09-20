@@ -9,10 +9,10 @@ describe('aggregatePollResultCommand', () => {
       options: {},
       scheduling: {
         aggregatePollResults: vi.fn().mockResolvedValue([
-          { date: '2026-09-21', available: ['Alice', 'Bob', 'Carol'], tentative: [], unavailable: [] },
-          { date: '2026-09-22', available: ['Alice', 'Bob', 'Dave'], tentative: [], unavailable: [] },
-          { date: '2026-09-23', available: ['Alice', 'Carol'], tentative: [], unavailable: [] },
-          { date: '2026-09-24', available: ['Alice', 'Bob', 'Carol', 'Dave'], tentative: [], unavailable: ['Eve'] },
+          { date: '2026/09/21', available: ['Alice', 'Bob', 'Carol'], tentative: [], unavailable: [] },
+          { date: '2026/09/22', available: ['Alice', 'Bob', 'Dave'], tentative: [], unavailable: [] },
+          { date: '2026/09/23', available: ['Alice', 'Carol'], tentative: [], unavailable: [] },
+          { date: '2026/09/24', available: ['Alice', 'Bob', 'Carol', 'Dave'], tentative: [], unavailable: ['Eve'] },
         ]),
       } as never,
       followUp,

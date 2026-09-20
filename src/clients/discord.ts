@@ -87,12 +87,12 @@ export class DiscordClient {
 
   private formatDate(date: string): string {
     const weekday = new Intl.DateTimeFormat('ja-JP', { timeZone: 'UTC', weekday: 'short' })
-      .format(new Date(`${date}T00:00:00.000Z`));
-    return `${date.replaceAll('-', '/')}（${weekday}）`;
+      .format(new Date(`${date.replaceAll('/', '-')}T00:00:00.000Z`));
+    return `${date}（${weekday}）`;
   }
 
   private formatDateWithoutWeekday(date: string): string {
-    return date.replaceAll('-', '/');
+    return date;
   }
 
   private async getWithRateLimit(url: string): Promise<Response> {

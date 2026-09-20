@@ -10,5 +10,5 @@ export type AvailabilityResult = {
 export interface SchedulingService {
   createRecordingDatePoll(): Promise<CreatedRecordingDatePoll>;
   aggregatePollResults(): Promise<AvailabilityResult[]>;
-  completeRecordingDate(fixDate: string): Promise<void>;
+  completeRecordingDate(fixedDate: string): Promise<void>;
 }

@@ -15,15 +15,15 @@ export function todayInTimeZone(timeZone: string): string {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(new Date());
   const part = (type: string) => values.find((value) => value.type === type)?.value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return `${part('year')}/${part('month')}/${part('day')}`;
 }
 
 export function candidateDatesFor(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
-  const current = new Date(`${startDate}T00:00:00.000Z`);
-  const end = new Date(`${endDate}T00:00:00.000Z`);
+  const current = new Date(`${startDate.replaceAll('/', '-')}T00:00:00.000Z`);
+  const end = new Date(`${endDate.replaceAll('/', '-')}T00:00:00.000Z`);
   while (current <= end) {
-    dates.push(current.toISOString().slice(0, 10));
+    dates.push(current.toISOString().slice(0, 10).replaceAll('-', '/'));
     current.setUTCDate(current.getUTCDate() + 1);
   }
   return dates;
@@ -70,8 +70,8 @@ export class DiscordSchedulingService implements SchedulingService {
     return results;
   }
 
-  async completeRecordingDate(fixDate: string): Promise<void> {
-    await this.recordingSchedules.complete(fixDate);
+  async completeRecordingDate(fixedDate: string): Promise<void> {
+    await this.recordingSchedules.complete(fixedDate);
   }
 
   private withPolls(metadata: Record<string, unknown> | undefined, polls: AvailabilityPoll[], threadId: string): Record<string, unknown> {

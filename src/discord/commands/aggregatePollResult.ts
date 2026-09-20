@@ -59,8 +59,8 @@ function formatCandidateDates(results: AvailabilityResult[]): string {
 
 function formatDateWithWeekday(date: string): string {
   const weekday = new Intl.DateTimeFormat('ja-JP', { timeZone: 'UTC', weekday: 'short' })
-    .format(new Date(`${date}T00:00:00.000Z`));
-  return `${date.replaceAll('-', '/')}（${weekday}）`;
+    .format(new Date(`${date.replaceAll('/', '-')}T00:00:00.000Z`));
+  return `${date}（${weekday}）`;
 }
 
 function names(userNames: string[]): string {

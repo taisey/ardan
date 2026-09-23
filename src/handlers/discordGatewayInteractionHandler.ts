@@ -29,7 +29,7 @@ export class DiscordGatewayInteractionHandler {
       return;
     }
 
-    await this.respond(interaction, { type: 5, data: { flags: 64 } });
+    await this.respond(interaction, { type: 5 });
     void command.execute({
       interactionToken: interaction.token,
       options: this.optionsFor(interaction.data.options),
@@ -53,7 +53,7 @@ export class DiscordGatewayInteractionHandler {
 
   private async followUp(interactionToken: string, content: string): Promise<void> {
     const result = await fetch(`https://discord.com/api/v10/webhooks/${this.applicationId}/${interactionToken}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, flags: 64, allowed_mentions: { parse: [] } }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
     });
     if (!result.ok) console.error(`Discord follow-up failed (${result.status})`);
   }

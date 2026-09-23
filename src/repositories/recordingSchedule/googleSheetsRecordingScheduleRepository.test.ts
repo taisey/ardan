@@ -26,8 +26,8 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
     const sheets = client([
       ['2026/09/01', '2026/10/15', '', ''],
       ['2026/10/01', '2026/10/20', '', ''],
-      ['2026/08/01', '2026/10/01', '2026/09/18', 'done'],
-      ['2026/09/15', '2026/10/10', '2026/09/20', 'done'],
+      ['2026/08/01', '2026/09/01', '2026/08/18', 'done'],
+      ['2026/09/15', '2026/09/30', '2026/09/20', 'done'],
       ['2026/09/10', '2026/10/05', '', ''],
     ]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
@@ -45,6 +45,21 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
 
     await expect(repository.claimNextPollSchedule('2026/10/10')).resolves.toBeNull();
     expect(sheets.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('does not claim a schedule until the latest completed schedule has expired', async () => {
+    const sheets = client([
+      ['2026/10/01', '2026/10/15', '2026/10/08', 'done'],
+      ['2026/10/16', '2026/10/20', '', ''],
+    ]);
+    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
+
+    await expect(repository.claimNextPollSchedule('2026/10/15')).resolves.toBeNull();
+    expect(sheets.updateRow).not.toHaveBeenCalled();
+
+    await expect(repository.claimNextPollSchedule('2026/10/16')).resolves.toEqual({
+      startDate: '2026/10/16', endDate: '2026/10/20', status: 'in_progress',
+    });
   });
 
   it('cancels expired in-progress schedules before claiming the next schedule', async () => {

@@ -22,6 +22,12 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
       return null;
     }
 
+    const latestCompletedEndDate = schedules
+      .filter(({ schedule }) => schedule.status === 'done')
+      .map(({ schedule }) => schedule.endDate)
+      .sort((left, right) => right.localeCompare(left))[0];
+    if (latestCompletedEndDate && latestCompletedEndDate >= today) return null;
+
     const candidates = schedules
       .filter(({ schedule }) => schedule.status === undefined && schedule.endDate >= today)
       .sort((left, right) => left.schedule.endDate.localeCompare(right.schedule.endDate));

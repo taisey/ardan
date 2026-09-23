@@ -74,17 +74,20 @@ start_date | end_date | fixed_date | status | metadata
 
 ### 作成処理: `/create_recording_date_poll` とBatch
 
-Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `in_progress` 行を確認します。`end_date` が昨日以前の行は `canceled` に更新し、今日以降の `in_progress` 行が1件でもあれば新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
+Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `in_progress` 行を確認します。`end_date` が昨日以前の行は `canceled` に更新し、今日以降の `in_progress` 行が1件でもあれば新規作成しません。確定済み（`done`）行のうち最新の `end_date` が今日以降の場合も、新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
 
 ```text
 対象行なし または end_date < 今日
   └─ skip
 
+期限切れの in_progress 行あり
+  └─ status を canceled に更新して次の判定へ
+
 期限内の in_progress 行あり
   └─ skip
 
-期限切れの in_progress 行あり
-  └─ status を canceled に更新して次の判定へ
+done 行の最新 end_date が今日以降
+  └─ skip
 
 対象行が status 空欄
   └─ status を in_progress に更新
@@ -108,6 +111,7 @@ Pollは各日付につき単一選択で、○（参加可能）・△（調整�
 ```text
 in_progress
   └─ fixed_date = 指定日、status = done
+       └─ 最新の done 行の end_date を過ぎるまで、新規 Poll 作成を skip
 ```
 
 候補範囲外の日付、または `in_progress` の行がない場合はSheetsを更新しません。

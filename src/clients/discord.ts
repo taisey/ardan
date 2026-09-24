@@ -32,6 +32,44 @@ export class DiscordClient {
     return { threadId: thread.id };
   }
 
+  async sendNotice(content: string, userIds: string[] = []): Promise<void> {
+    const response = await fetch(`https://discord.com/api/v10/channels/${this.noticeChannelId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, allowed_mentions: { parse: [], users: userIds } }),
+    });
+    if (!response.ok) throw new Error(`Discord notice failed (${response.status})`);
+  }
+
+  async createEditingReminderThread(episode: string, startDueWeek: string): Promise<{ threadId: string }> {
+    const messageResponse = await fetch(`https://discord.com/api/v10/channels/${this.noticeChannelId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: `編集リマインド: ${episode}\n開始予定週: ${startDueWeek}`, allowed_mentions: { parse: [] } }),
+    });
+    if (!messageResponse.ok) throw new Error(`Discord editing reminder announcement failed (${messageResponse.status})`);
+    const message = (await messageResponse.json()) as { id?: unknown };
+    if (typeof message.id !== 'string') throw new Error('Discord editing reminder announcement did not contain a message ID');
+    const threadResponse = await fetch(`https://discord.com/api/v10/channels/${this.noticeChannelId}/messages/${message.id}/threads`, {
+      method: 'POST',
+      headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: `編集リマインド ${episode}`, auto_archive_duration: 10_080 }),
+    });
+    if (!threadResponse.ok) throw new Error(`Discord editing reminder thread creation failed (${threadResponse.status})`);
+    const thread = (await threadResponse.json()) as { id?: unknown };
+    if (typeof thread.id !== 'string') throw new Error('Discord editing reminder thread response did not contain a thread ID');
+    return { threadId: thread.id };
+  }
+
+  async sendThreadMessage(threadId: string, content: string, userIds: string[] = []): Promise<void> {
+    const response = await fetch(`https://discord.com/api/v10/channels/${threadId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, allowed_mentions: { parse: [], users: userIds } }),
+    });
+    if (!response.ok) throw new Error(`Discord thread message failed (${response.status})`);
+  }
+
   async createAvailabilityPoll(date: string, channelId: string): Promise<{ messageId: string }> {
     const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
       method: 'POST',

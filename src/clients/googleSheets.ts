@@ -9,7 +9,7 @@ export class GoogleSheetsClient {
   ) {
     const auth = new google.auth.GoogleAuth({
       credentials: serviceAccount,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.readonly'],
     });
     this.sheets = google.sheets({ version: 'v4', auth });
   }

@@ -13,6 +13,15 @@ export type GoogleConfig = {
   serviceAccount: Record<string, unknown>;
 };
 
+export type EditingScheduleConfig = Pick<AppConfig, 'discord' | 'timezone'> & {
+  google: GoogleConfig & {
+    editingScheduleSheetGid: number;
+    editingScheduleAssignOrderSheetGid: number;
+    usersSheetGid: number;
+    editingSourceFolderId: string;
+  };
+};
+
 export type AppConfig = {
   timezone: string;
   discord: DiscordConfig;
@@ -81,4 +90,22 @@ export function loadDiscordCommandConfig(env: Environment = process.env): Discor
     applicationId: required(env, 'DISCORD_APPLICATION_ID'),
     guildId: required(env, 'DISCORD_GUILD_ID'),
   };
+}
+
+export function loadEditingScheduleConfig(env: Environment = process.env): EditingScheduleConfig {
+  const scheduling = loadSchedulingConfig(env);
+  return {
+    ...scheduling,
+    google: {
+      ...scheduling.google,
+      editingScheduleSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_SHEET_GID')),
+      editingScheduleAssignOrderSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID')),
+      usersSheetGid: parseSheetGid(required(env, 'GOOGLE_USERS_SHEET_GID')),
+      editingSourceFolderId: required(env, 'GOOGLE_EDITING_SOURCE_FOLDER_ID'),
+    },
+  };
+}
+
+export function loadOptionalEditingScheduleConfig(env: Environment = process.env): EditingScheduleConfig | undefined {
+  return env.GOOGLE_EDITING_SOURCE_FOLDER_ID?.trim() ? loadEditingScheduleConfig(env) : undefined;
 }

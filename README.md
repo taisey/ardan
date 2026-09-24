@@ -126,6 +126,49 @@ npm run batch:create-recording-date-poll
 
 Gatewayプロセスは `TZ` を基準に、毎時 `xx:00:00` に同じ作成処理を実行します。起動直後には実行しません。
 
+## 編集スケジュール
+
+同じSpreadsheetに次の3タブを用意します。各タブの1行目はヘッダーです。タブは名前ではなく、URL末尾の `gid`（例: `.../edit#gid=123` の `123`）で指定します。
+
+```text
+editing_schedule
+# | start_due_week | assign | status | metadata
+
+editing_schedule_assign_order
+order | name
+
+user
+name | discord_id
+```
+
+`status` は編集中の `in_progress` と、公開済みの `done` のいずれかです。
+
+`metadata` はJSON形式の拡張情報です。最初のリマインド時に `{"discord":{"reminderThreadId":"..."}}` が自動保存され、同じ回への以後のリマインドはそのDiscordスレッドに投稿されます。
+
+`GOOGLE_EDITING_SOURCE_FOLDER_ID` には、動画ごとの `#123` 形式の名前を持つDriveフォルダまたはファイルが置かれた親フォルダIDを設定します。サービスアカウントには、そのフォルダの閲覧権限とSpreadsheetの編集権限が必要です。
+
+```env
+GOOGLE_EDITING_SOURCE_FOLDER_ID=
+GOOGLE_EDITING_SCHEDULE_SHEET_GID=
+GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID=
+GOOGLE_USERS_SHEET_GID=
+```
+
+```sh
+npm run batch:sync-editing-schedule
+npm run batch:remind-editing-schedule
+```
+
+`batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。`start_due_week` は最新の `done` 行の翌週（月曜）にし、その週に入っている・過ぎている場合は次週にします。複数件を一度に追加した場合は担当者と週を1件ずつ順送りにします。
+
+`batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。日次実行はcronやsystemd timerなどから、それぞれを必要な時刻に呼び出してください。
+
+`/sync_editing_schedule` は同期だけ、`/remind_editing_schedule` はリマインドだけを手動実行します。`/notify_editing_published episode:#123` は公開通知を投稿し、対象行の `status` を `done` に更新します。追加後はコマンド定義も同期してください。
+
+```sh
+npm run discord:sync-commands
+```
+
 ## Verification
 
 ```sh

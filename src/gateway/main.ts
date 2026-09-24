@@ -1,18 +1,34 @@
 import { DiscordGateway } from '../clients/discordGateway.js';
 import { DiscordClient } from '../clients/discord.js';
 import { GoogleSheetsClient } from '../clients/googleSheets.js';
-import { loadAppConfig } from '../config/env.js';
+import { loadAppConfig, loadOptionalEditingScheduleConfig } from '../config/env.js';
 import { DiscordGatewayInteractionHandler } from '../handlers/discordGatewayInteractionHandler.js';
 import { GoogleSheetsRecordingScheduleRepository } from '../repositories/recordingSchedule/googleSheetsRecordingScheduleRepository.js';
 import { DiscordSchedulingService, todayInTimeZone } from '../services/scheduling/discordSchedulingService.js';
+import { GoogleDriveClient } from '../clients/googleDrive.js';
+import { GoogleSheetsEditingScheduleRepository } from '../repositories/editingSchedule/googleSheetsEditingScheduleRepository.js';
+import { EditingScheduleService } from '../services/editingSchedule/editingScheduleService.js';
 
 const config = loadAppConfig();
+const editingConfig = loadOptionalEditingScheduleConfig();
 const scheduling = new DiscordSchedulingService(
   new DiscordClient(config.discord.botToken, config.discord.noticeChannelId, config.discord.mentionRoleId),
   new GoogleSheetsRecordingScheduleRepository(new GoogleSheetsClient(config.google.serviceAccount, config.google.spreadsheetId), config.google.sheetGid),
   () => todayInTimeZone(config.timezone),
 );
-const interactions = new DiscordGatewayInteractionHandler(config.discord.applicationId, scheduling);
+const editingSchedule = editingConfig ? new EditingScheduleService(
+  new GoogleDriveClient(editingConfig.google.serviceAccount),
+  new GoogleSheetsEditingScheduleRepository(
+    new GoogleSheetsClient(editingConfig.google.serviceAccount, editingConfig.google.spreadsheetId),
+    editingConfig.google.editingScheduleSheetGid,
+    editingConfig.google.editingScheduleAssignOrderSheetGid,
+    editingConfig.google.usersSheetGid,
+  ),
+  new DiscordClient(editingConfig.discord.botToken, editingConfig.discord.noticeChannelId, editingConfig.discord.mentionRoleId),
+  editingConfig.google.editingSourceFolderId,
+  () => todayInTimeZone(editingConfig.timezone),
+) : undefined;
+const interactions = new DiscordGatewayInteractionHandler(config.discord.applicationId, scheduling, editingSchedule);
 const gateway = new DiscordGateway(config.discord.botToken, async (dispatch) => {
   if (dispatch.type === 'INTERACTION_CREATE') await interactions.handle(dispatch.data as Parameters<typeof interactions.handle>[0]);
 });

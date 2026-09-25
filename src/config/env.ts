@@ -50,9 +50,9 @@ function parseServiceAccount(value: string): Record<string, unknown> {
   }
 }
 
-function parseSheetGid(value: string): number {
+function parseSheetGid(value: string, name: string): number {
   const gid = Number(value);
-  if (!Number.isSafeInteger(gid) || gid < 0) throw new Error('GOOGLE_SHEET_GID must be a non-negative integer');
+  if (!Number.isSafeInteger(gid) || gid < 0) throw new Error(`${name} must be a non-negative integer`);
   return gid;
 }
 
@@ -67,7 +67,7 @@ export function loadSchedulingConfig(env: Environment = process.env): Scheduling
     },
     google: {
       spreadsheetId: required(env, 'GOOGLE_SPREADSHEET_ID'),
-      sheetGid: parseSheetGid(required(env, 'GOOGLE_SHEET_GID')),
+      sheetGid: parseSheetGid(required(env, 'GOOGLE_RECORDING_SCHEDULE_SHEET_GID'), 'GOOGLE_RECORDING_SCHEDULE_SHEET_GID'),
       serviceAccount: parseServiceAccount(required(env, 'GOOGLE_SERVICE_ACCOUNT_JSON')),
     },
   };
@@ -98,9 +98,9 @@ export function loadEditingScheduleConfig(env: Environment = process.env): Editi
     ...scheduling,
     google: {
       ...scheduling.google,
-      editingScheduleSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_SHEET_GID')),
-      editingScheduleAssignOrderSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID')),
-      usersSheetGid: parseSheetGid(required(env, 'GOOGLE_USERS_SHEET_GID')),
+      editingScheduleSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_SHEET_GID'), 'GOOGLE_EDITING_SCHEDULE_SHEET_GID'),
+      editingScheduleAssignOrderSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID'), 'GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID'),
+      usersSheetGid: parseSheetGid(required(env, 'GOOGLE_USERS_SHEET_GID'), 'GOOGLE_USERS_SHEET_GID'),
       editingSourceFolderId: required(env, 'GOOGLE_EDITING_SOURCE_FOLDER_ID'),
     },
   };

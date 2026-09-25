@@ -32,7 +32,7 @@ npm run build
 | `DISCORD_MENTION_ROLE_ID` | 親メッセージでmentionするロールID |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | サービスアカウントJSON全体を1行のJSONで設定。private keyの改行はJSON内で `\n` のまま保存 |
 | `GOOGLE_SPREADSHEET_ID` | 対象SpreadsheetのID |
-| `GOOGLE_SHEET_GID` | 対象タブのURL末尾にある `gid`。例: `.../edit#gid=0` なら `0` |
+| `GOOGLE_RECORDING_SCHEDULE_SHEET_GID` | 録画日程タブのURL末尾にある `gid`。例: `.../edit#gid=0` なら `0` |
 
 Spreadsheetはサービスアカウントのメールアドレスに編集者として共有します。Botには通知チャンネルで、メッセージ送信・公開スレッド作成・スレッド内メッセージ送信の権限が必要です。
 

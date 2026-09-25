@@ -10,7 +10,7 @@
     "build": "npm run generate && tsc -p tsconfig.json",
     "typecheck": "npm run generate && tsc --noEmit",
     "start": "node --env-file-if-exists=.env dist/gateway/main.js",
-    "dev": "tsx --env-file-if-exists=.env src/gateway/main.ts",
+    "dev": "npm run discord:sync-commands && tsx --env-file-if-exists=.env src/gateway/main.ts",
     "batch:create-recording-date-poll": "tsx --env-file-if-exists=.env src/batch/createRecordingDatePoll.ts",
     "batch:sync-editing-schedule": "tsx --env-file-if-exists=.env src/batch/syncEditingSchedule.ts",
     "batch:remind-editing-schedule": "tsx --env-file-if-exists=.env src/batch/remindEditingSchedule.ts",

@@ -148,10 +148,10 @@ name | discord_id
 `GOOGLE_EDITING_SOURCE_FOLDER_ID` には、動画ごとの `#123` 形式の名前を持つDriveフォルダまたはファイルが置かれた親フォルダIDを設定します。サービスアカウントには、そのフォルダの閲覧権限とSpreadsheetの編集権限が必要です。
 
 ```env
-GOOGLE_EDITING_SOURCE_FOLDER_ID=
 GOOGLE_EDITING_SCHEDULE_SHEET_GID=
 GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID=
 GOOGLE_USERS_SHEET_GID=
+GOOGLE_EDITING_SOURCE_FOLDER_ID=
 ```
 
 ```sh

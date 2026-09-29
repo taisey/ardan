@@ -161,7 +161,7 @@ npm run batch:remind-editing-schedule
 
 `batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。`start_due_week` は最新の `done` 行の翌週（月曜）にし、その週に入っている・過ぎている場合は次週にします。複数件を一度に追加した場合は担当者と週を1件ずつ順送りにします。
 
-`batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。日次実行はcronやsystemd timerなどから、それぞれを必要な時刻に呼び出してください。
+`batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。`scripts/install-systemd.sh` で本番環境にインストールした場合は、専用の systemd timer が毎日0:00に実行します。
 
 `/sync_editing_schedule` は同期だけ、`/remind_editing_schedule` はリマインドだけを手動実行します。`/notify_editing_published episode:#123` は公開通知を投稿し、対象行の `status` を `done` に更新します。追加後はコマンド定義も同期してください。
 

@@ -35,6 +35,8 @@ const gateway = new DiscordGateway(config.discord.botToken, async (dispatch) => 
 
 let pollCreationRunning = false;
 let scheduledPoll: ReturnType<typeof setTimeout> | undefined;
+let editingReminderRunning = false;
+let scheduledEditingReminder: ReturnType<typeof setTimeout> | undefined;
 
 async function createScheduledPoll(): Promise<void> {
   if (pollCreationRunning) return;
@@ -49,9 +51,23 @@ async function createScheduledPoll(): Promise<void> {
   }
 }
 
+async function remindScheduledEditors(): Promise<void> {
+  if (!editingSchedule || editingReminderRunning) return;
+  editingReminderRunning = true;
+  try {
+    const reminded = await editingSchedule.remindDueEditors();
+    console.log(`Scheduled editing reminder: ${reminded.length} due`);
+  } catch (error) {
+    console.error('Scheduled editing reminder failed', error);
+  } finally {
+    editingReminderRunning = false;
+  }
+}
+
 gateway.start();
 console.log('Discord Gateway client started');
 scheduleNextPoll();
+scheduleNextEditingReminder();
 
 function scheduleNextPoll(): void {
   const now = new Date();
@@ -64,6 +80,22 @@ function scheduleNextPoll(): void {
     scheduleNextPoll();
   }, nextHour.getTime() - now.getTime());
   console.log(`Next scheduled recording-date poll: ${formatInTimeZone(nextHour, config.timezone)}`);
+}
+
+function scheduleNextEditingReminder(): void {
+  if (!editingSchedule || !editingConfig) return;
+  const now = new Date();
+  const nextMidnight = new Date(now);
+  nextMidnight.setSeconds(0, 0);
+  nextMidnight.setMinutes(nextMidnight.getMinutes() + 1);
+  while (formatInTimeZone(nextMidnight, editingConfig.timezone).slice(11, 19) !== '00:00:00') {
+    nextMidnight.setMinutes(nextMidnight.getMinutes() + 1);
+  }
+  scheduledEditingReminder = setTimeout(async () => {
+    await remindScheduledEditors();
+    scheduleNextEditingReminder();
+  }, Math.max(1_000, nextMidnight.getTime() - now.getTime()));
+  console.log(`Next scheduled editing reminder: ${formatInTimeZone(nextMidnight, editingConfig.timezone)}`);
 }
 
 function formatInTimeZone(date: Date, timeZone: string): string {
@@ -83,6 +115,7 @@ function formatInTimeZone(date: Date, timeZone: string): string {
 
 function shutdown(): void {
   if (scheduledPoll) clearTimeout(scheduledPoll);
+  if (scheduledEditingReminder) clearTimeout(scheduledEditingReminder);
   gateway.stop();
 }
 

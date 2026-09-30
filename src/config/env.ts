@@ -3,6 +3,7 @@ type Environment = Record<string, string | undefined>;
 export type DiscordConfig = {
   botToken: string;
   applicationId: string;
+  guildId: string;
   noticeChannelId: string;
   mentionRoleId: string;
 };
@@ -62,6 +63,7 @@ export function loadSchedulingConfig(env: Environment = process.env): Scheduling
     discord: {
       botToken: required(env, 'DISCORD_BOT_TOKEN'),
       applicationId: '',
+      guildId: required(env, 'DISCORD_GUILD_ID'),
       noticeChannelId: required(env, 'DISCORD_NOTICE_CHANNEL_ID'),
       mentionRoleId: required(env, 'DISCORD_MENTION_ROLE_ID'),
     },

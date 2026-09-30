@@ -1,4 +1,4 @@
-export type PollVoters = { label: string; userNames: string[] };
+export type PollVoters = { label: string; userNames: string[]; userIds: string[] };
 
 export class DiscordClient {
   constructor(
@@ -98,13 +98,34 @@ export class DiscordClient {
     const voters: PollVoters[] = [];
     for (const answer of answers) {
       if (typeof answer.answer_id !== 'number' || typeof answer.poll_media?.text !== 'string') throw new Error('Discord poll answer is invalid');
-      voters.push({ label: answer.poll_media.text, userNames: await this.getAnswerVoterNames(messageId, answer.answer_id, channelId) });
+      const users = await this.getAnswerVoterNames(messageId, answer.answer_id, channelId);
+      voters.push({ label: answer.poll_media.text, userNames: users.map((user) => user.name), userIds: users.map((user) => user.id) });
     }
     return voters;
   }
 
-  private async getAnswerVoterNames(messageId: string, answerId: number, channelId: string): Promise<string[]> {
-    const userNames: string[] = [];
+  async getRoleMemberIds(guildId: string, roleId: string): Promise<string[]> {
+    const memberIds: string[] = [];
+    let after: string | undefined;
+    do {
+      const query = new URLSearchParams({ limit: '1000', ...(after ? { after } : {}) });
+      const response = await this.getWithRateLimit(`https://discord.com/api/v10/guilds/${guildId}/members?${query}`);
+      if (!response.ok) throw new Error(`Discord role members retrieval failed (${response.status})`);
+      const members = await response.json() as Array<{ user?: { id?: unknown }; roles?: unknown }>;
+      const validMembers = members.flatMap((member) => {
+        const id = member.user?.id;
+        const roles = member.roles;
+        return typeof id === 'string' && Array.isArray(roles) && roles.includes(roleId) ? [id] : [];
+      });
+      memberIds.push(...validMembers);
+      after = members.at(-1)?.user?.id as string | undefined;
+      if (members.length < 1000) break;
+    } while (after);
+    return memberIds;
+  }
+
+  private async getAnswerVoterNames(messageId: string, answerId: number, channelId: string): Promise<Array<{ id: string; name: string }>> {
+    const usersWithNames: Array<{ id: string; name: string }> = [];
     let after: string | undefined;
     do {
       const query = new URLSearchParams({ limit: '100', ...(after ? { after } : {}) });
@@ -112,15 +133,15 @@ export class DiscordClient {
       if (!response.ok) throw new Error(`Discord poll voters retrieval failed (${response.status})`);
       const body = await response.json() as { users?: Array<{ id?: unknown; global_name?: unknown; username?: unknown }> };
       const users = (body.users ?? []).flatMap((user) => typeof user.id === 'string' ? [user] : []);
-      userNames.push(...users.map((user) => {
+      usersWithNames.push(...users.map((user) => ({ id: user.id as string, name: (() => {
         if (typeof user.global_name === 'string' && user.global_name.trim()) return user.global_name;
         if (typeof user.username === 'string' && user.username.trim()) return user.username;
         return user.id as string;
-      }));
+      })() })));
       after = users.at(-1)?.id as string | undefined;
       if (users.length < 100) break;
     } while (after);
-    return userNames;
+    return usersWithNames;
   }
 
   private formatDate(date: string): string {

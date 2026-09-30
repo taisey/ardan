@@ -163,13 +163,7 @@ npm run batch:remind-editing-schedule
 
 `batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。未回答者がいない場合は投稿しません。DiscordユーザーIDで照合するため、表示名の変更には影響されません。
 
-このBatchは常駐Gatewayとは分離したワンショット処理です。毎日00:00:00（`TZ` が `Asia/Tokyo` の場合は日本時間）に実行する例:
-
-```cron
-0 0 * * * cd /path/to/ardan && npm run batch:remind-unanswered-recording-poll-voters
-```
-
-`DISCORD_GUILD_ID` はロールメンバー取得に使用します。BotにはGuildメンバー一覧の取得権限と、対象スレッドへのメッセージ送信権限が必要です。
+常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 
 `batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が毎日0:00に実行します。
 

@@ -37,6 +37,8 @@ const gateway = new DiscordGateway(config.discord.botToken, async (dispatch) => 
 
 let pollCreationRunning = false;
 let scheduledPoll: ReturnType<typeof setTimeout> | undefined;
+let unansweredPollReminderRunning = false;
+let scheduledUnansweredPollReminder: ReturnType<typeof setTimeout> | undefined;
 let editingReminderRunning = false;
 let scheduledEditingReminder: ReturnType<typeof setTimeout> | undefined;
 
@@ -50,6 +52,19 @@ async function createScheduledPoll(): Promise<void> {
     console.error('Scheduled recording-date poll failed', error);
   } finally {
     pollCreationRunning = false;
+  }
+}
+
+async function remindScheduledUnansweredPollVoters(): Promise<void> {
+  if (unansweredPollReminderRunning) return;
+  unansweredPollReminderRunning = true;
+  try {
+    const reminded = await scheduling.remindUnansweredRecordingPollVoters();
+    console.log(`Scheduled unanswered recording-poll reminder: ${reminded.length} reminded`);
+  } catch (error) {
+    console.error('Scheduled unanswered recording-poll reminder failed', error);
+  } finally {
+    unansweredPollReminderRunning = false;
   }
 }
 
@@ -69,6 +84,7 @@ async function remindScheduledEditors(): Promise<void> {
 gateway.start();
 console.log('Discord Gateway client started');
 scheduleNextPoll();
+scheduleNextUnansweredPollReminder();
 scheduleNextEditingReminder();
 
 function scheduleNextPoll(): void {
@@ -82,6 +98,19 @@ function scheduleNextPoll(): void {
     scheduleNextPoll();
   }, nextHour.getTime() - now.getTime());
   console.log(`Next scheduled recording-date poll: ${formatInTimeZone(nextHour, config.timezone)}`);
+}
+
+function scheduleNextUnansweredPollReminder(): void {
+  const now = new Date();
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(0, 0, 0, 0);
+  nextMidnight.setDate(nextMidnight.getDate() + 1);
+
+  scheduledUnansweredPollReminder = setTimeout(async () => {
+    await remindScheduledUnansweredPollVoters();
+    scheduleNextUnansweredPollReminder();
+  }, nextMidnight.getTime() - now.getTime());
+  console.log(`Next scheduled unanswered recording-poll reminder: ${formatInTimeZone(nextMidnight, config.timezone)}`);
 }
 
 function scheduleNextEditingReminder(): void {
@@ -117,6 +146,7 @@ function formatInTimeZone(date: Date, timeZone: string): string {
 
 function shutdown(): void {
   if (scheduledPoll) clearTimeout(scheduledPoll);
+  if (scheduledUnansweredPollReminder) clearTimeout(scheduledUnansweredPollReminder);
   if (scheduledEditingReminder) clearTimeout(scheduledEditingReminder);
   gateway.stop();
 }

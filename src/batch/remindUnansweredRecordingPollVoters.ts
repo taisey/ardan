@@ -14,7 +14,11 @@ async function main(): Promise<void> {
     config.discord.guildId,
     config.discord.mentionRoleId,
   );
-  const result = await service.createRecordingDatePoll();
-  console.log(JSON.stringify(result));
+  const unanswered = await service.remindUnansweredRecordingPollVoters();
+  console.log(JSON.stringify({ reminded: unanswered }));
 }
-main().catch((error: unknown) => { console.error(error instanceof Error ? error.message : 'Batch failed'); process.exitCode = 1; });
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : 'Unanswered poll reminder batch failed');
+  process.exitCode = 1;
+});

@@ -14,6 +14,7 @@
     "batch:create-recording-date-poll": "tsx --env-file-if-exists=.env src/batch/createRecordingDatePoll.ts",
     "batch:sync-editing-schedule": "tsx --env-file-if-exists=.env src/batch/syncEditingSchedule.ts",
     "batch:remind-editing-schedule": "tsx --env-file-if-exists=.env src/batch/remindEditingSchedule.ts",
+    "batch:remind-unanswered-recording-poll-voters": "tsx --env-file-if-exists=.env src/batch/remindUnansweredRecordingPollVoters.ts",
     "discord:sync-commands": "tsx --env-file-if-exists=.env src/batch/syncDiscordGuildCommands.ts",
     "test": "vitest run"
   },

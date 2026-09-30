@@ -34,6 +34,8 @@ export class DiscordSchedulingService implements SchedulingService {
     private readonly discord: DiscordClient,
     private readonly recordingSchedules: RecordingScheduleRepository,
     private readonly today: () => string,
+    private readonly guildId: string,
+    private readonly mentionRoleId: string,
   ) {}
 
   async createRecordingDatePoll(): Promise<CreatedRecordingDatePoll> {
@@ -49,6 +51,31 @@ export class DiscordSchedulingService implements SchedulingService {
       await this.recordingSchedules.saveMetadata(schedule, this.withPolls(schedule.metadata, polls, threadId));
     }
     return { created: true };
+  }
+
+  async remindUnansweredRecordingPollVoters(): Promise<string[]> {
+    const schedule = await this.recordingSchedules.findLatestInProgress();
+    if (!schedule) return [];
+    const threadId = this.threadIdFromMetadata(schedule.metadata);
+    if (!threadId) throw new Error('No Discord thread metadata exists for the in-progress schedule');
+    const polls = this.pollsFromMetadata(schedule.metadata);
+    if (!polls.length) throw new Error('No Discord poll metadata exists for the in-progress schedule');
+
+    const groupMemberIds = await this.discord.getRoleMemberIds(this.guildId, this.mentionRoleId);
+    const pollVoters = await Promise.all(polls.map(({ messageId, channelId }) => this.discord.getPollVoters(messageId, channelId)));
+    const answeredEveryPoll = new Set(groupMemberIds);
+    for (const voters of pollVoters) {
+      const votersForPoll = new Set(voters.flatMap(({ userIds }) => userIds));
+      for (const memberId of answeredEveryPoll) {
+        if (!votersForPoll.has(memberId)) answeredEveryPoll.delete(memberId);
+      }
+    }
+    const unanswered = groupMemberIds.filter((memberId) => !answeredEveryPoll.has(memberId));
+    if (unanswered.length) {
+      const mentions = unanswered.map((memberId) => `<@${memberId}>`).join(' ');
+      await this.discord.sendThreadMessage(threadId, `録音日程の投票が未回答です。すべてのPollに回答してください。\n未回答: ${mentions}`, unanswered);
+    }
+    return unanswered;
   }
 
   async aggregatePollResults(): Promise<AvailabilityResult[]> {
@@ -90,6 +117,13 @@ export class DiscordSchedulingService implements SchedulingService {
       return typeof date === 'string' && typeof messageId === 'string'
         ? [{ date, messageId, ...(typeof channelId === 'string' ? { channelId } : {}) }] : [];
     });
+  }
+
+  private threadIdFromMetadata(metadata: Record<string, unknown> | undefined): string | undefined {
+    const discord = metadata?.discord;
+    if (!discord || typeof discord !== 'object' || Array.isArray(discord)) return undefined;
+    const threadId = (discord as Record<string, unknown>).availabilityThreadId;
+    return typeof threadId === 'string' ? threadId : undefined;
   }
 
   private votersFor(voters: PollVoters[], marker: string): string[] {

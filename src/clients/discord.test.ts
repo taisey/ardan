@@ -20,11 +20,26 @@ describe('DiscordClient', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(new DiscordClient('token', 'channel', 'role').getPollVoters('message')).resolves.toEqual([
-      { label: '○ 参加可能', userNames: ['Alice'] },
-      { label: '△ 調整可', userNames: ['bob'] },
-      { label: '× 不可', userNames: [] },
+      { label: '○ 参加可能', userNames: ['Alice'], userIds: ['u1'] },
+      { label: '△ 調整可', userNames: ['bob'], userIds: ['u2'] },
+      { label: '× 不可', userNames: [], userIds: [] },
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('retrieves members of the mention role across guild member pages', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse([
+        { user: { id: 'u1' }, roles: ['role'] },
+        { user: { id: 'u2' }, roles: ['other'] },
+      ]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(new DiscordClient('token', 'channel', 'role').getRoleMemberIds('guild', 'role')).resolves.toEqual(['u1']);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://discord.com/api/v10/guilds/guild/members?limit=1000',
+      { headers: { Authorization: 'Bot token' } },
+    );
   });
 
   it('includes a Japanese weekday in the poll title', async () => {

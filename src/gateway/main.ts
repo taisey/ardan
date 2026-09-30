@@ -15,6 +15,8 @@ const scheduling = new DiscordSchedulingService(
   new DiscordClient(config.discord.botToken, config.discord.noticeChannelId, config.discord.mentionRoleId),
   new GoogleSheetsRecordingScheduleRepository(new GoogleSheetsClient(config.google.serviceAccount, config.google.spreadsheetId), config.google.sheetGid),
   () => todayInTimeZone(config.timezone),
+  config.discord.guildId,
+  config.discord.mentionRoleId,
 );
 const editingSchedule = editingConfig ? new EditingScheduleService(
   new GoogleDriveClient(editingConfig.google.serviceAccount),

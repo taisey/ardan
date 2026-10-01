@@ -42,6 +42,12 @@ describe('DiscordClient', () => {
     );
   });
 
+  it('explains the required intent when guild member access is forbidden', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ code: 50001 }, 403)));
+    await expect(new DiscordClient('token', 'channel', 'role').getRoleMemberIds('guild', 'role'))
+      .rejects.toThrow('enable Server Members Intent');
+  });
+
   it('includes a Japanese weekday in the poll title', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'message' }));
     vi.stubGlobal('fetch', fetchMock);

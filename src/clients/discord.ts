@@ -110,6 +110,7 @@ export class DiscordClient {
     do {
       const query = new URLSearchParams({ limit: '1000', ...(after ? { after } : {}) });
       const response = await this.getWithRateLimit(`https://discord.com/api/v10/guilds/${guildId}/members?${query}`);
+      if (response.status === 403) throw new Error('Discord role members retrieval failed (403): enable Server Members Intent in Discord Developer Portal and verify guild access');
       if (!response.ok) throw new Error(`Discord role members retrieval failed (${response.status})`);
       const members = await response.json() as Array<{ user?: { id?: unknown }; roles?: unknown }>;
       const validMembers = members.flatMap((member) => {

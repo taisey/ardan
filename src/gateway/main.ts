@@ -1,4 +1,5 @@
 import { DiscordGateway } from '../clients/discordGateway.js';
+import { nextMidnightInTimeZone } from './scheduleTime.js';
 import { DiscordClient } from '../clients/discord.js';
 import { GoogleSheetsClient } from '../clients/googleSheets.js';
 import { loadAppConfig, loadOptionalEditingScheduleConfig } from '../config/env.js';
@@ -102,9 +103,7 @@ function scheduleNextPoll(): void {
 
 function scheduleNextUnansweredPollReminder(): void {
   const now = new Date();
-  const nextMidnight = new Date(now);
-  nextMidnight.setHours(0, 0, 0, 0);
-  nextMidnight.setDate(nextMidnight.getDate() + 1);
+  const nextMidnight = nextMidnightInTimeZone(now, config.timezone);
 
   scheduledUnansweredPollReminder = setTimeout(async () => {
     await remindScheduledUnansweredPollVoters();
@@ -116,12 +115,7 @@ function scheduleNextUnansweredPollReminder(): void {
 function scheduleNextEditingReminder(): void {
   if (!editingSchedule || !editingConfig) return;
   const now = new Date();
-  const nextMidnight = new Date(now);
-  nextMidnight.setSeconds(0, 0);
-  nextMidnight.setMinutes(nextMidnight.getMinutes() + 1);
-  while (formatInTimeZone(nextMidnight, editingConfig.timezone).slice(11, 19) !== '00:00:00') {
-    nextMidnight.setMinutes(nextMidnight.getMinutes() + 1);
-  }
+  const nextMidnight = nextMidnightInTimeZone(now, editingConfig.timezone);
   scheduledEditingReminder = setTimeout(async () => {
     await remindScheduledEditors();
     scheduleNextEditingReminder();

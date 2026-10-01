@@ -35,6 +35,7 @@ npm run build
 | `GOOGLE_RECORDING_SCHEDULE_SHEET_GID` | 録画日程タブのURL末尾にある `gid`。例: `.../edit#gid=0` なら `0` |
 
 Spreadsheetはサービスアカウントのメールアドレスに編集者として共有します。Botには通知チャンネルで、メッセージ送信・公開スレッド作成・スレッド内メッセージ送信の権限が必要です。
+未回答リマインドはロール所属者の一覧取得を使うため、Discord Developer Portal → Bot → Privileged Gateway Intents の **Server Members Intent** を有効にしてください。無効の場合、メンバー取得が403になり通知処理が失敗します。
 
 ```sh
 npm run dev
@@ -57,6 +58,7 @@ npm run discord:sync-commands
 | `/create_recording_date_poll` | 最新の作成対象日程についてPollを作成 |
 | `/aggregate_poll_result` | 日付ごとの○・△・×と投票者を集計し、候補日を最後に表示 |
 | `/fix_recording_date date:YYYY/MM/DD` | 進行中の日程を指定日で確定 |
+| `/remind_unanswered` | 投票に未回答のメンバーを日程調整スレッドでリマインド |
 
 Guild Commandなので、同期結果は指定したDiscordサーバーだけに即時反映されます。
 
@@ -160,6 +162,12 @@ npm run batch:remind-editing-schedule
 ```
 
 `batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。`start_due_week` は最新の `done` 行の翌週（月曜）にし、その週に入っている・過ぎている場合は次週にします。複数件を一度に追加した場合は担当者と週を1件ずつ順送りにします。
+
+手動実行はDiscordで `/remind_unanswered`、またはプロジェクト内で次のBatchを使います。
+
+```sh
+npm run batch:remind-unanswered-recording-poll-voters
+```
 
 `batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。未回答者がいない場合は投稿しません。DiscordユーザーIDで照合するため、表示名の変更には影響されません。
 

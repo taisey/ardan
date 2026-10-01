@@ -1,0 +1,44 @@
+---
+- name: Install Ardan Cloudflare Tunnel connector
+  hosts: ardan
+  gather_facts: false
+  become: true
+  vars_prompt:
+    - name: cloudflare_tunnel_token
+      prompt: "Tunnel token"
+      private: true
+  tasks:
+    - name: Validate Tunnel token without exposing it
+      ansible.builtin.assert:
+        that:
+          - cloudflare_tunnel_token is defined
+          - cloudflare_tunnel_token is string
+          - cloudflare_tunnel_token is match('^[A-Za-z0-9+/=]+$')
+        fail_msg: "A non-empty Tunnel token is required"
+      no_log: true
+    - name: Apply connector configuration
+      when: not ansible_check_mode
+      block:
+        - name: Create private staging directory
+          ansible.builtin.tempfile:
+            state: directory
+            prefix: ardan-tunnel-
+          register: tunnel_staging
+        - name: Transfer Tunnel token
+          ansible.builtin.copy:
+            content: "{{ cloudflare_tunnel_token }}"
+            dest: "{{ tunnel_staging.path }}/tunnel-token"
+            owner: root
+            group: root
+            mode: '0600'
+          no_log: true
+        - name: Install connector and verify readiness
+          ansible.builtin.script:
+            cmd: "tunnel/files/setup-vm.sh {{ tunnel_staging.path }}/tunnel-token"
+          changed_when: true
+      always:
+        - name: Remove private staging directory
+          ansible.builtin.file:
+            path: "{{ tunnel_staging.path }}"
+            state: absent
+          when: tunnel_staging is defined and tunnel_staging.path is defined

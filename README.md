@@ -12,6 +12,11 @@ Google Sheets の日程行
 
 MIT Licenseで公開しています。依存ライブラリのライセンスは各パッケージに帰属します。
 
+## VM設定とdeploy
+
+Tunnel導入とアプリdeployの本体は [`ansible/README.md`](ansible/README.md) にまとめています。
+`script/setup-cloudflare.sh` はTunnel playbookを呼ぶだけの入口で、CIは `ansible/deploy.yml` を直接実行します。
+
 ## Setup
 
 ```sh

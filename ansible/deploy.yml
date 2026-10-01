@@ -1,0 +1,113 @@
+---
+- name: Deploy Ardan Gateway
+  hosts: ardan
+  become: true
+  vars:
+    ardan_repo: https://github.com/taisey/ardan.git
+    ardan_version: main
+    ardan_path: /opt/ardan
+    ardan_env_file: /etc/ardan/ardan.env
+  tasks:
+    - name: Require Ubuntu or Debian with systemd
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Debian'
+          - ansible_facts.service_mgr == 'systemd'
+    - name: Install Git and certificates
+      ansible.builtin.apt:
+        name: [git, ca-certificates, acl]
+        state: present
+        update_cache: true
+    - name: Check system Node.js prerequisite
+      ansible.builtin.command: /usr/bin/node --version
+      register: node_version
+      changed_when: false
+      check_mode: false
+    - name: Require Node.js 22 or newer and npm in system PATH
+      ansible.builtin.assert:
+        that: node_version.stdout[1:] is version('22.0.0', '>=')
+        fail_msg: "Install Node.js >= 22 and npm in /usr/bin before deploying"
+    - name: Create service account
+      ansible.builtin.user:
+        name: ardan
+        system: true
+        create_home: true
+        shell: /usr/sbin/nologin
+    - name: Create application and configuration directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.owner }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - {path: "{{ ardan_path }}", owner: ardan, mode: '0755'}
+        - {path: /etc/ardan, owner: root, mode: '0700'}
+    - name: Install runtime environment when supplied
+      ansible.builtin.copy:
+        src: "{{ ardan_env_source }}"
+        dest: "{{ ardan_env_file }}"
+        owner: root
+        group: root
+        mode: '0600'
+      when: ardan_env_source is defined
+      no_log: true
+    - name: Inspect runtime environment
+      ansible.builtin.stat:
+        path: "{{ ardan_env_file }}"
+      register: runtime_env
+    - name: Require runtime environment before changing running code
+      ansible.builtin.assert:
+        that: runtime_env.stat.exists and runtime_env.stat.size | int > 0
+        fail_msg: "Provide ardan_env_source or pre-create /etc/ardan/ardan.env"
+    - name: Secure existing runtime environment
+      ansible.builtin.file:
+        path: "{{ ardan_env_file }}"
+        owner: root
+        group: root
+        mode: '0600'
+    - name: Check out requested repository revision
+      ansible.builtin.git:
+        repo: "{{ ardan_repo }}"
+        dest: "{{ ardan_path }}"
+        version: "{{ ardan_version }}"
+        force: false
+      become_user: ardan
+    - name: Install dependencies from lockfile
+      ansible.builtin.command: /usr/bin/npm ci
+      args:
+        chdir: "{{ ardan_path }}"
+      become_user: ardan
+      changed_when: true
+    - name: Build Gateway
+      ansible.builtin.command: /usr/bin/npm run build
+      args:
+        chdir: "{{ ardan_path }}"
+      become_user: ardan
+      changed_when: true
+    - name: Install Gateway systemd unit
+      ansible.builtin.template:
+        src: templates/ardan.service.j2
+        dest: /etc/systemd/system/ardan.service
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Enable and restart Gateway
+      ansible.builtin.systemd_service:
+        name: ardan.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
+    - name: Allow immediate startup failures to surface
+      ansible.builtin.pause:
+        seconds: 5
+      when: not ansible_check_mode
+    - name: Read back Gateway state
+      ansible.builtin.command: systemctl is-active ardan.service
+      register: gateway_state
+      changed_when: false
+      when: not ansible_check_mode
+    - name: Require active Gateway process
+      ansible.builtin.assert:
+        that: gateway_state.stdout == 'active'
+      when: not ansible_check_mode

@@ -81,6 +81,8 @@
       changed_when: true
     - name: Build Gateway
       ansible.builtin.command: /usr/bin/npm run build
+      environment:
+        NODE_OPTIONS: --max-old-space-size=1536
       args:
         chdir: "{{ ardan_path }}"
       become_user: ardan

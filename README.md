@@ -12,6 +12,62 @@ Google Sheets の日程行
 
 MIT Licenseで公開しています。依存ライブラリのライセンスは各パッケージに帰属します。
 
+## VM設定とdeploy
+
+Tunnel導入とアプリdeployの本体は [`ansible/README.md`](ansible/README.md) にまとめています。
+`script/setup-cloudflare.sh` はTunnel playbookを呼ぶだけの入口で、CIは `ansible/deploy.yml` を直接実行します。
+
+## CIデプロイ
+
+`Deploy` workflowはmainへのpushに対する `CI` 成功後、**検証されたcommit SHA** をdeployします。
+main上の手動実行も可能です（手動実行時はCI成功を自動確認しません）。PRからはdeployしません。
+GitHubの `prod` Environmentを作り、必要なら承認制にしてください。
+
+Environment Secrets:
+- `VM_SSH_PASSWORD`: VMへのSSHログインパスワード
+- `VM_BECOME_PASSWORD`: sudoパスワード。未設定・空の場合は `VM_SSH_PASSWORD` を使用
+- `ARDAN_ENV`: `.env` 相当の全内容
+- `CF_ACCESS_CLIENT_ID`: Cloudflare Access service tokenのClient ID（Access経由の場合のみ必須）
+- `CF_ACCESS_CLIENT_SECRET`: 同service tokenのClient Secret（Access経由の場合のみ必須）
+
+Environment Variables:
+- `VM_HOST`: runnerから到達できるVMのSSHホスト
+- `VM_USER`: 省略時 `ubuntu`
+- `VM_SSH_PORT`: 省略時 `22`
+- `VM_USE_CLOUDFLARE_ACCESS`: `true` でCloudflare Access経由のSSHを有効化。
+  未設定または `false` は通常のSSH接続。値は `true` / `false` のみ。
+
+Repository Variables:
+- `DEPLOY_RUNNER`: runner指定のJSON文字列または配列。
+  runner決定時に使うためEnvironment Variableには設定しません。
+  省略時はGitHub-hosted `ubuntu-latest`。
+  LAN内VM向けには `['self-hosted','linux','ardan']` ではなく、正しいJSONの
+  `["self-hosted","linux","ardan"]` を指定し、対応runnerを用意してください。
+
+通常のSSH接続では `192.168.151.204` へGitHub-hosted runnerからは到達できません。
+LANに到達できるself-hosted runnerを使うか、Cloudflare Access経由を有効にしてください。
+
+Cloudflare Access経由の場合は、次のように設定します。
+
+- `VM_USE_CLOUDFLARE_ACCESS`: `true`
+- `VM_HOST`: Accessで保護したSSHホスト名（例: `ardan.taisey.dev`）
+- Secretsに `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` を登録。
+- Cloudflare Access applicationに、対象service tokenを許可する **Service Auth** ポリシーを設定。
+
+Access認証とは別に、VMへのSSHユーザー・パスワード認証も行います。
+
+有効時だけrunnerに公式GitHub releaseの最新 `cloudflared`（Linux X64/ARM64）を取得し、
+SSHのProxyCommandで `cloudflared access ssh --hostname %h` を実行します。
+`--service-token-id` / `--service-token-secret` はSecrets由来の環境変数から渡します。
+トークン値はinventoryやSSH設定ファイルに保存しません。
+GitHub-hosted `ubuntu-latest` からもこの経路を利用できます。
+CIではSSHパスワード認証とsudo権限が必要です。
+sudoには `VM_BECOME_PASSWORD` を渡し、未設定・空の場合はSSHパスワードを使います。
+SSHホスト鍵の検証は無効にしており、known_hostsの登録は不要です。
+Ansible Core 2.19の `ssh_askpass` でSSHパスワードを渡します。
+秘密入力はrunnerの一時dirにだけ保存し、成功・失敗時とも削除します。
+commit/push、GitHub側のSecrets設定、VMへの適用は別操作です。
+
 ## Setup
 
 ```sh

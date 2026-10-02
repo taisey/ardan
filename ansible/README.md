@@ -102,33 +102,6 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
 - in-place deployなのでbuild中も旧プロセスは動作し、途中失敗時の自動rollbackはありません。
   deploy前に既存の別名サービスで同じBotを動かしていないか確認してください。
 
-## CI
-
-`Deploy` workflowはmainへのpushに対する `CI` 成功後、**検証されたcommit SHA** をdeployします。
-main上の手動実行も可能です（手動実行時はCI成功を自動確認しません）。PRからはdeployしません。
-GitHubの `production` Environmentを作り、必要なら承認制にしてください。
-
-Environment Secrets:
-- `DEPLOY_SSH_KEY`: VMへのSSH秘密鍵
-- `DEPLOY_KNOWN_HOSTS`: 別経路で照合したVMのknown_hosts行（自動scanはしません）
-- `ARDAN_ENV`: `.env` 相当の全内容
-
-Environment Variables:
-- `DEPLOY_HOST`: runnerから到達できるVMのSSHホスト
-- `DEPLOY_USER`: 省略時 `ubuntu`
-- `DEPLOY_PORT`: 省略時 `22`
-- `DEPLOY_RUNNER`: JSON文字列または配列。省略時はGitHub-hosted `ubuntu-latest`。
-  LAN内VM向けには `['self-hosted','linux','ardan']` ではなく、正しいJSONの
-  `["self-hosted","linux","ardan"]` を指定し、対応runnerを用意してください。
-
-**今のworkflowは通常のSSH接続です。** `192.168.151.204` へGitHub-hosted runnerからは
-通常到達できません。LANに到達できるself-hosted runnerを使ってください。
-Cloudflare Access経由のCI接続にはservice-token用ポリシーとProxyCommandの追加が必要で、
-このworkflowにはまだ含めていません。人間向けAccessログインをCIで流用しないでください。
-CIでは鍵認証、StrictHostKeyChecking、非対話sudoが必要です。
-秘密入力はrunnerの一時dirにだけ保存し、成功・失敗時とも削除します。
-commit/push、GitHub側のSecrets設定、VMへの適用は別操作です。
-
 ## ローカル検証
 
 ```sh

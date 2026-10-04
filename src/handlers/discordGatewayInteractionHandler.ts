@@ -1,6 +1,7 @@
 import { findDiscordCommand } from '../discord/commands/index.js';
 import type { SchedulingService } from '../services/scheduling/schedulingService.js';
 import type { EditingScheduleService } from '../services/editingSchedule/editingScheduleService.js';
+import type { RssService } from '../services/rss/rssService.js';
 import { discordHttpError } from '../clients/discordHttpError.js';
 
 type DiscordInteractionOption = { name?: unknown; value?: unknown };
@@ -19,6 +20,7 @@ export class DiscordGatewayInteractionHandler {
     private readonly applicationId: string,
     private readonly scheduling: SchedulingService,
     private readonly editingSchedule?: EditingScheduleService,
+    private readonly rss?: RssService,
   ) {}
 
   async handle(interaction: DiscordInteraction): Promise<void> {
@@ -38,6 +40,7 @@ export class DiscordGatewayInteractionHandler {
       options: this.optionsFor(interaction.data.options),
       scheduling: this.scheduling,
       editingSchedule: this.editingSchedule,
+      rss: this.rss,
       followUp: (content) => this.followUp(interaction.token, content),
     });
   }

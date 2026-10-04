@@ -35,7 +35,7 @@ const editingSchedule = editingConfig ? new EditingScheduleService(
   editingConfig.google.editingSourceFolderId,
   () => todayInTimeZone(editingConfig.timezone),
 ) : undefined;
-const interactions = new DiscordGatewayInteractionHandler(config.discord.applicationId, scheduling, editingSchedule);
+const interactions = new DiscordGatewayInteractionHandler(config.discord.applicationId, scheduling, editingSchedule, rss);
 const gateway = new DiscordGateway(config.discord.botToken, async (dispatch) => {
   if (dispatch.type === 'INTERACTION_CREATE') await interactions.handle(dispatch.data as Parameters<typeof interactions.handle>[0]);
 });

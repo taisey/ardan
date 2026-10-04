@@ -115,6 +115,7 @@ npm run discord:sync-commands
 | `/aggregate_poll_result` | 日付ごとの○・△・×と投票者を集計し、候補日を最後に表示 |
 | `/fix_recording_date date:YYYY/MM/DD` | 進行中の日程を指定日で確定 |
 | `/remind_unanswered` | 投票に未回答のメンバーを日程調整スレッドでリマインド |
+| `/poll_rss` | Podcast RSSを手動取得 |
 
 Guild Commandなので、同期結果は指定したDiscordサーバーだけに即時反映されます。
 
@@ -219,7 +220,7 @@ npm run batch:remind-editing-schedule
 
 `batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。`start_due_week` は最新の `done` 行の翌週（月曜）にし、その週に入っている・過ぎている場合は次週にします。複数件を一度に追加した場合は担当者と週を1件ずつ順送りにします。
 
-手動実行はDiscordで `/remind_unanswered`、またはプロジェクト内で次のBatchを使います。
+手動実行はDiscordで `/poll_rss`、またはプロジェクト内で次のBatchを使います。
 
 ```sh
 npm run batch:remind-unanswered-recording-poll-voters

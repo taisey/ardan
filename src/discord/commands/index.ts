@@ -5,6 +5,7 @@ import { notifyEditingPublishedCommand } from './notifyEditingPublished.js';
 import { syncEditingScheduleCommand } from './syncEditingSchedule.js';
 import { remindEditingScheduleCommand } from './remindEditingSchedule.js';
 import { remindUnansweredCommand } from './remindUnanswered.js';
+import { pollRssCommand } from './pollRss.js';
 
 export const discordCommands = [
   createRecordingDatePollCommand,
@@ -14,6 +15,7 @@ export const discordCommands = [
   syncEditingScheduleCommand,
   remindEditingScheduleCommand,
   remindUnansweredCommand,
+  pollRssCommand,
 ];
 export const discordCommandDefinitions = discordCommands.map((command) => command.definition);
 

@@ -115,6 +115,7 @@ npm run discord:sync-commands
 | `/aggregate_poll_result` | 日付ごとの○・△・×と投票者を集計し、候補日を最後に表示 |
 | `/fix_recording_date date:YYYY/MM/DD` | 進行中の日程を指定日で確定 |
 | `/remind_unanswered` | 投票に未回答のメンバーを日程調整スレッドでリマインド |
+| `/poll_rss` | Podcast RSSを手動取得 |
 
 Guild Commandなので、同期結果は指定したDiscordサーバーだけに即時反映されます。
 
@@ -219,7 +220,7 @@ npm run batch:remind-editing-schedule
 
 `batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。`start_due_week` は最新の `done` 行の翌週（月曜）にし、その週に入っている・過ぎている場合は次週にします。複数件を一度に追加した場合は担当者と週を1件ずつ順送りにします。
 
-手動実行はDiscordで `/remind_unanswered`、またはプロジェクト内で次のBatchを使います。
+手動実行はDiscordで `/poll_rss`、またはプロジェクト内で次のBatchを使います。
 
 ```sh
 npm run batch:remind-unanswered-recording-poll-voters
@@ -245,3 +246,24 @@ npm run typecheck
 npm run build
 npm test
 ```
+
+## Podcast RSS通知
+
+同じSpreadsheetに `rss_feeds` タブを作り、1行目を `feed_url | metadata` にします。A列の2行目以降にPodcastのRSS 2.0フィードURLを1行ずつ登録し、B列のmetadataは空欄で構いません。追加・停止は行の追加・削除で行います。名前やenabled列、`rss_items` タブは不要です。
+
+```env
+DISCORD_RSS_CHANNEL_ID=投稿先チャンネルID
+GOOGLE_RSS_FEEDS_SHEET_GID=rss_feedsタブのgid
+```
+
+チャンネルIDとgidを設定すると、Gatewayが毎時00・15・30・45分に取得します。起動直後には取得しません。両方未設定ならRSS機能は無効です。BotにはRSSチャンネルの閲覧・メッセージ送信権限が必要です。既存の日程通知とは別チャンネルを指定できます。
+
+```sh
+npm run batch:poll-rss
+# ビルド済みの場合
+node --env-file-if-exists=.env dist/batch/pollRss.js
+```
+
+各行の `metadata` に `{"rss":{"pubDate":"..."}}` の形で最後に処理した公開日時を保存します。RSS以外のmetadataがあれば保持します。初回は取得できた公開済みの最新日時を記録し、過去回は投稿しません。空フィードの場合は初回取得時刻を記録します。以降はcheckpointより新しい回を公開日時の古い順で投稿し、同じ日時の回がすべて成功してからcheckpointを更新します。未来の公開日時の回は、その時刻以降に処理します。投稿は番組名・エピソード名・記事URL（なければ音声URL）です。
+
+公開日時が前へ進む運用を前提とし、checkpoint以前・同時刻で後から追加された回や、既存回の修正は通知しません。公開日時の欠落・不正や取得・投稿エラーの場合、そのフィードの処理を止めて他のフィードは継続します。同時刻の一部を投稿した後の失敗や、投稿成功後・記録前の停止では、再試行時に重複する場合があります。

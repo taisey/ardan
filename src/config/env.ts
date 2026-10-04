@@ -111,3 +111,25 @@ export function loadEditingScheduleConfig(env: Environment = process.env): Editi
 export function loadOptionalEditingScheduleConfig(env: Environment = process.env): EditingScheduleConfig | undefined {
   return env.GOOGLE_EDITING_SOURCE_FOLDER_ID?.trim() ? loadEditingScheduleConfig(env) : undefined;
 }
+
+export type RssConfig = {
+  botToken: string;
+  channelId: string;
+  spreadsheetId: string;
+  sheetGid: number;
+  serviceAccount: Record<string, unknown>;
+};
+
+export function loadRssConfig(env: Environment = process.env): RssConfig {
+  return {
+    botToken: required(env, 'DISCORD_BOT_TOKEN'),
+    channelId: required(env, 'DISCORD_RSS_CHANNEL_ID'),
+    spreadsheetId: required(env, 'GOOGLE_SPREADSHEET_ID'),
+    sheetGid: parseSheetGid(required(env, 'GOOGLE_RSS_FEEDS_SHEET_GID'), 'GOOGLE_RSS_FEEDS_SHEET_GID'),
+    serviceAccount: parseServiceAccount(required(env, 'GOOGLE_SERVICE_ACCOUNT_JSON')),
+  };
+}
+
+export function loadOptionalRssConfig(env: Environment = process.env): RssConfig | undefined {
+  return env.DISCORD_RSS_CHANNEL_ID?.trim() || env.GOOGLE_RSS_FEEDS_SHEET_GID?.trim() ? loadRssConfig(env) : undefined;
+}

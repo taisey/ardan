@@ -1,6 +1,7 @@
 import { findDiscordCommand } from '../discord/commands/index.js';
 import type { SchedulingService } from '../services/scheduling/schedulingService.js';
 import type { EditingScheduleService } from '../services/editingSchedule/editingScheduleService.js';
+import { discordHttpError } from '../clients/discordHttpError.js';
 
 type DiscordInteractionOption = { name?: unknown; value?: unknown };
 
@@ -51,13 +52,13 @@ export class DiscordGatewayInteractionHandler {
     const result = await fetch(`https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(response),
     });
-    if (!result.ok) throw new Error(`Discord interaction callback failed (${result.status})`);
+    if (!result.ok) throw await discordHttpError('Discord interaction callback', result);
   }
 
   private async followUp(interactionToken: string, content: string): Promise<void> {
     const result = await fetch(`https://discord.com/api/v10/webhooks/${this.applicationId}/${interactionToken}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
     });
-    if (!result.ok) console.error(`Discord follow-up failed (${result.status})`);
+    if (!result.ok) console.error(await discordHttpError('Discord follow-up', result));
   }
 }

@@ -41,6 +41,14 @@ function required(env: Environment, name: string): string {
   return value;
 }
 
+function requiredDiscordApplicationId(env: Environment): string {
+  const value = required(env, 'DISCORD_APPLICATION_ID');
+  if (!/^\d+$/.test(value)) {
+    throw new Error('DISCORD_APPLICATION_ID must contain only the numeric Discord application ID (check for inline comments or extra text)');
+  }
+  return value;
+}
+
 function parseServiceAccount(value: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(value);
@@ -81,7 +89,7 @@ export function loadAppConfig(env: Environment = process.env): AppConfig {
     ...scheduling,
     discord: {
       ...scheduling.discord,
-      applicationId: required(env, 'DISCORD_APPLICATION_ID'),
+      applicationId: requiredDiscordApplicationId(env),
     },
   };
 }
@@ -89,7 +97,7 @@ export function loadAppConfig(env: Environment = process.env): AppConfig {
 export function loadDiscordCommandConfig(env: Environment = process.env): DiscordCommandConfig {
   return {
     botToken: required(env, 'DISCORD_BOT_TOKEN'),
-    applicationId: required(env, 'DISCORD_APPLICATION_ID'),
+    applicationId: requiredDiscordApplicationId(env),
     guildId: required(env, 'DISCORD_GUILD_ID'),
   };
 }

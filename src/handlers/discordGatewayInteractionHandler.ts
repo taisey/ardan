@@ -49,16 +49,20 @@ export class DiscordGatewayInteractionHandler {
   }
 
   private async respond(interaction: DiscordInteraction, response: InteractionResponse): Promise<void> {
-    const result = await fetch(`https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(response),
+    const url = `https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`;
+    const method = 'POST';
+    const result = await fetch(url, {
+      method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(response),
     });
-    if (!result.ok) throw await discordHttpError('Discord interaction callback', result);
+    if (!result.ok) throw await discordHttpError('Discord interaction callback', result, { method, url });
   }
 
   private async followUp(interactionToken: string, content: string): Promise<void> {
-    const result = await fetch(`https://discord.com/api/v10/webhooks/${this.applicationId}/${interactionToken}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+    const url = `https://discord.com/api/v10/webhooks/${this.applicationId}/${interactionToken}`;
+    const method = 'POST';
+    const result = await fetch(url, {
+      method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
     });
-    if (!result.ok) console.error(await discordHttpError('Discord follow-up', result));
+    if (!result.ok) console.error(await discordHttpError('Discord follow-up', result, { method, url }));
   }
 }

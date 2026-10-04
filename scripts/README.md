@@ -4,9 +4,9 @@
 Tunnel導入、deploy、前提条件、CI設定は [ansible/README.md](../ansible/README.md) にまとめています。
 
 ```sh
-./script/setup-cloudflare.sh
+./scripts/setup-cloudflare.sh
 # Ansibleのオプションをそのまま渡せます
-./script/setup-cloudflare.sh --ask-pass --ask-become-pass
+./scripts/setup-cloudflare.sh --ask-pass --ask-become-pass
 ```
 
 Tunnel tokenはAnsibleが非表示で入力を求めます。

@@ -15,7 +15,7 @@ MIT Licenseで公開しています。依存ライブラリのライセンスは
 ## VM設定とdeploy
 
 Tunnel導入とアプリdeployの本体は [`ansible/README.md`](ansible/README.md) にまとめています。
-`script/setup-cloudflare.sh` はTunnel playbookを呼ぶだけの入口で、CIは `ansible/deploy.yml` を直接実行します。
+`scripts/setup-cloudflare.sh` はTunnel playbookを呼ぶだけの入口で、CIは `ansible/deploy.yml` を直接実行します。
 
 ## CIデプロイ
 

@@ -1,7 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { RssPollLock } from '../../repositories/rss/rssPollLock.js';
 import { RssService } from './rssService.js';
 import { RssClient, type PodcastEpisode } from '../../clients/rss.js';
 import { nextRssPollAt } from '../../gateway/rssSchedule.js';
@@ -22,8 +19,7 @@ function setup() {
     row.pubDate = pubDate;
     row.metadata = { ...row.metadata, rss: { pubDate } };
   });
-  const lock = { withLock: async <T>(run: () => Promise<T>): Promise<T> => run() };
-  const service = () => new RssService({ listFeeds, updatePubDate }, { read }, lock as RssPollLock, { sendNotice }, () => day(10));
+  const service = () => new RssService({ listFeeds, updatePubDate }, { read }, { sendNotice }, () => day(10));
   return { stored, read, sendNotice, listFeeds, updatePubDate, service };
 }
 
@@ -64,12 +60,6 @@ describe('RSS polling', () => {
     });
     await expect(s.service().poll()).rejects.toThrow();
     expect(s.stored[0].pubDate).toBe(new Date(day(3)).toISOString());
-  });
-
-  it('rejects concurrent polls and releases the lock after failure', async () => {
-    const lock = new RssPollLock(join(tmpdir(), `ardan-rss-lock-${Date.now()}`));
-    await lock.withLock(async () => await expect(lock.withLock(async () => {})).rejects.toThrow('already locked'));
-    await expect(lock.withLock(async () => 42)).resolves.toBe(42);
   });
 
   it('stops on checkpoint write failure and preserves the durable checkpoint', async () => {

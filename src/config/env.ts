@@ -118,7 +118,6 @@ export type RssConfig = {
   spreadsheetId: string;
   sheetGid: number;
   serviceAccount: Record<string, unknown>;
-  pollLockPath: string;
 };
 
 export function loadRssConfig(env: Environment = process.env): RssConfig {
@@ -128,7 +127,6 @@ export function loadRssConfig(env: Environment = process.env): RssConfig {
     spreadsheetId: required(env, 'GOOGLE_SPREADSHEET_ID'),
     sheetGid: parseSheetGid(required(env, 'GOOGLE_RSS_FEEDS_SHEET_GID'), 'GOOGLE_RSS_FEEDS_SHEET_GID'),
     serviceAccount: parseServiceAccount(required(env, 'GOOGLE_SERVICE_ACCOUNT_JSON')),
-    pollLockPath: env.RSS_POLL_LOCK_PATH?.trim() || 'data/rss-poll.lock',
   };
 }
 

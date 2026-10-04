@@ -1,3 +1,5 @@
+import { discordHttpError } from './discordHttpError.js';
+
 export type PollVoters = { label: string; userNames: string[]; userIds: string[] };
 
 export class DiscordClient {
@@ -17,7 +19,7 @@ export class DiscordClient {
         allowed_mentions: { parse: [], roles: [this.mentionRoleId] },
       }),
     });
-    if (!messageResponse.ok) throw new Error(`Discord schedule announcement failed (${messageResponse.status})`);
+    if (!messageResponse.ok) throw await discordHttpError('Discord schedule announcement', messageResponse);
     const message = (await messageResponse.json()) as { id?: unknown };
     if (typeof message.id !== 'string') throw new Error('Discord announcement did not contain a message ID');
 
@@ -26,7 +28,7 @@ export class DiscordClient {
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: `次回録音の日程調整 ${dateRange}`, auto_archive_duration: 10_080 }),
     });
-    if (!threadResponse.ok) throw new Error(`Discord schedule thread creation failed (${threadResponse.status})`);
+    if (!threadResponse.ok) throw await discordHttpError('Discord schedule thread creation', threadResponse);
     const thread = (await threadResponse.json()) as { id?: unknown };
     if (typeof thread.id !== 'string') throw new Error('Discord thread response did not contain a thread ID');
     return { threadId: thread.id };
@@ -38,7 +40,7 @@ export class DiscordClient {
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, allowed_mentions: { parse: [], users: userIds } }),
     });
-    if (!response.ok) throw new Error(`Discord notice failed (${response.status})`);
+    if (!response.ok) throw await discordHttpError('Discord notice', response);
   }
 
   async createEditingReminderThread(episode: string, startDueWeek: string): Promise<{ threadId: string }> {
@@ -47,7 +49,7 @@ export class DiscordClient {
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: `編集リマインド: ${episode}\n開始予定週: ${startDueWeek}`, allowed_mentions: { parse: [] } }),
     });
-    if (!messageResponse.ok) throw new Error(`Discord editing reminder announcement failed (${messageResponse.status})`);
+    if (!messageResponse.ok) throw await discordHttpError('Discord editing reminder announcement', messageResponse);
     const message = (await messageResponse.json()) as { id?: unknown };
     if (typeof message.id !== 'string') throw new Error('Discord editing reminder announcement did not contain a message ID');
     const threadResponse = await fetch(`https://discord.com/api/v10/channels/${this.noticeChannelId}/messages/${message.id}/threads`, {
@@ -55,7 +57,7 @@ export class DiscordClient {
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: `編集リマインド ${episode}`, auto_archive_duration: 10_080 }),
     });
-    if (!threadResponse.ok) throw new Error(`Discord editing reminder thread creation failed (${threadResponse.status})`);
+    if (!threadResponse.ok) throw await discordHttpError('Discord editing reminder thread creation', threadResponse);
     const thread = (await threadResponse.json()) as { id?: unknown };
     if (typeof thread.id !== 'string') throw new Error('Discord editing reminder thread response did not contain a thread ID');
     return { threadId: thread.id };
@@ -67,7 +69,7 @@ export class DiscordClient {
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, allowed_mentions: { parse: [], users: userIds } }),
     });
-    if (!response.ok) throw new Error(`Discord thread message failed (${response.status})`);
+    if (!response.ok) throw await discordHttpError('Discord thread message', response);
   }
 
   async createAvailabilityPoll(date: string, channelId: string): Promise<{ messageId: string }> {
@@ -83,7 +85,7 @@ export class DiscordClient {
         },
       }),
     });
-    if (!response.ok) throw new Error(`Discord message creation failed (${response.status})`);
+    if (!response.ok) throw await discordHttpError('Discord message creation', response);
     const body = (await response.json()) as { id?: unknown };
     if (typeof body.id !== 'string') throw new Error('Discord response did not contain a message ID');
     return { messageId: body.id };
@@ -91,7 +93,7 @@ export class DiscordClient {
 
   async getPollVoters(messageId: string, channelId = this.noticeChannelId): Promise<PollVoters[]> {
     const messageResponse = await this.getWithRateLimit(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`);
-    if (!messageResponse.ok) throw new Error(`Discord poll retrieval failed (${messageResponse.status})`);
+    if (!messageResponse.ok) throw await discordHttpError('Discord poll retrieval', messageResponse);
     const message = await messageResponse.json() as { poll?: { answers?: Array<{ answer_id?: unknown; poll_media?: { text?: unknown } }> } };
     const answers = message.poll?.answers;
     if (!answers) throw new Error('Discord message does not contain a poll');
@@ -111,7 +113,7 @@ export class DiscordClient {
       const query = new URLSearchParams({ limit: '1000', ...(after ? { after } : {}) });
       const response = await this.getWithRateLimit(`https://discord.com/api/v10/guilds/${guildId}/members?${query}`);
       if (response.status === 403) throw new Error('Discord role members retrieval failed (403): enable Server Members Intent in Discord Developer Portal and verify guild access');
-      if (!response.ok) throw new Error(`Discord role members retrieval failed (${response.status})`);
+      if (!response.ok) throw await discordHttpError('Discord role members retrieval', response);
       const members = await response.json() as Array<{ user?: { id?: unknown }; roles?: unknown }>;
       const validMembers = members.flatMap((member) => {
         const id = member.user?.id;
@@ -131,7 +133,7 @@ export class DiscordClient {
     do {
       const query = new URLSearchParams({ limit: '100', ...(after ? { after } : {}) });
       const response = await this.getWithRateLimit(`https://discord.com/api/v10/channels/${channelId}/polls/${messageId}/answers/${answerId}?${query}`);
-      if (!response.ok) throw new Error(`Discord poll voters retrieval failed (${response.status})`);
+      if (!response.ok) throw await discordHttpError('Discord poll voters retrieval', response);
       const body = await response.json() as { users?: Array<{ id?: unknown; global_name?: unknown; username?: unknown }> };
       const users = (body.users ?? []).flatMap((user) => typeof user.id === 'string' ? [user] : []);
       usersWithNames.push(...users.map((user) => ({ id: user.id as string, name: (() => {

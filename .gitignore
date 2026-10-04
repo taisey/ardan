@@ -1,6 +1,6 @@
 node_modules/
 dist/
-data/
+/data/rss-poll.lock/
 .env
 .env.*
 !.env.example

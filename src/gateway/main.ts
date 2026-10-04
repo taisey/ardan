@@ -2,7 +2,9 @@ import { DiscordGateway } from '../clients/discordGateway.js';
 import { nextMidnightInTimeZone } from './scheduleTime.js';
 import { DiscordClient } from '../clients/discord.js';
 import { GoogleSheetsClient } from '../clients/googleSheets.js';
-import { loadAppConfig, loadOptionalEditingScheduleConfig } from '../config/env.js';
+import { loadAppConfig, loadOptionalEditingScheduleConfig, loadOptionalRssConfig } from '../config/env.js';
+import { createRssService } from '../services/rss/createRssService.js';
+import { nextRssPollAt } from './rssSchedule.js';
 import { DiscordGatewayInteractionHandler } from '../handlers/discordGatewayInteractionHandler.js';
 import { GoogleSheetsRecordingScheduleRepository } from '../repositories/recordingSchedule/googleSheetsRecordingScheduleRepository.js';
 import { DiscordSchedulingService, todayInTimeZone } from '../services/scheduling/discordSchedulingService.js';
@@ -12,6 +14,8 @@ import { EditingScheduleService } from '../services/editingSchedule/editingSched
 
 const config = loadAppConfig();
 const editingConfig = loadOptionalEditingScheduleConfig();
+const rssConfig = loadOptionalRssConfig();
+const rss = rssConfig ? createRssService(rssConfig) : undefined;
 const scheduling = new DiscordSchedulingService(
   new DiscordClient(config.discord.botToken, config.discord.noticeChannelId, config.discord.mentionRoleId),
   new GoogleSheetsRecordingScheduleRepository(new GoogleSheetsClient(config.google.serviceAccount, config.google.spreadsheetId), config.google.sheetGid),
@@ -42,6 +46,8 @@ let unansweredPollReminderRunning = false;
 let scheduledUnansweredPollReminder: ReturnType<typeof setTimeout> | undefined;
 let editingReminderRunning = false;
 let scheduledEditingReminder: ReturnType<typeof setTimeout> | undefined;
+let scheduledRssPoll: ReturnType<typeof setTimeout> | undefined;
+let stopping = false;
 
 async function createScheduledPoll(): Promise<void> {
   if (pollCreationRunning) return;
@@ -87,6 +93,23 @@ console.log('Discord Gateway client started');
 scheduleNextPoll();
 scheduleNextUnansweredPollReminder();
 scheduleNextEditingReminder();
+scheduleNextRssPoll();
+
+function scheduleNextRssPoll(): void {
+  if (!rss || stopping) return;
+  const now = Date.now();
+  const next = nextRssPollAt(now);
+  scheduledRssPoll = setTimeout(async () => {
+    try {
+      const posted = await rss.poll();
+      console.log(`Scheduled RSS poll: ${posted} posted`);
+    } catch (error) {
+      console.error('Scheduled RSS poll failed', error);
+    } finally {
+      scheduleNextRssPoll();
+    }
+  }, next - now);
+}
 
 function scheduleNextPoll(): void {
   const now = new Date();
@@ -139,6 +162,8 @@ function formatInTimeZone(date: Date, timeZone: string): string {
 }
 
 function shutdown(): void {
+  stopping = true;
+  if (scheduledRssPoll) clearTimeout(scheduledRssPoll);
   if (scheduledPoll) clearTimeout(scheduledPoll);
   if (scheduledUnansweredPollReminder) clearTimeout(scheduledUnansweredPollReminder);
   if (scheduledEditingReminder) clearTimeout(scheduledEditingReminder);

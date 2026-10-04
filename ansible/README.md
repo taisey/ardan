@@ -1,7 +1,7 @@
 # VM設定とdeploy
 
 ```text
-script/setup-cloudflare.sh   → ansible/tunnel.yml（手動の薄い入口）
+scripts/setup-cloudflare.sh  → ansible/tunnel.yml（手動の薄い入口）
 ansible/tunnel.yml           → tunnel/files/setup-vm.sh（VM側connector設定）
 GitHub Actions Deploy       → ansible/deploy.yml（clone・build・systemd）
 ```
@@ -37,13 +37,13 @@ API tokenとは別物です。別VMのTunnel tokenは流用しないでくださ
 
 ```sh
 # Tunnel tokenを非表示で入力
-./script/setup-cloudflare.sh
+./scripts/setup-cloudflare.sh
 # 同じ処理を直接呼ぶ場合
 ansible-playbook -i ansible/inventory.ini ansible/tunnel.yml
 # SSH接続先の上書き
-./script/setup-cloudflare.sh -e ansible_host=192.168.151.204 -e ansible_user=ubuntu
+./scripts/setup-cloudflare.sh -e ansible_host=192.168.151.204 -e ansible_user=ubuntu
 # 入力検証のみ。VM接続・変更はしません
-./script/setup-cloudflare.sh --check
+./scripts/setup-cloudflare.sh --check
 ```
 
 トークンはAnsibleの `vars_prompt: private: true` で入力します。
@@ -105,8 +105,7 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml \
 ## ローカル検証
 
 ```sh
-bash -n script/setup-cloudflare.sh ansible/tunnel/files/setup-vm.sh
-python3 script/tests/test_setup_cloudflare.py
+bash -n scripts/setup-cloudflare.sh ansible/tunnel/files/setup-vm.sh
 python3 ansible/tests/test_tunnel.py
 # PyYAML入りのAnsibleと同じPython環境で実行
 python3 ansible/tests/test_workflow.py

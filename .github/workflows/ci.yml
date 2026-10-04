@@ -11,17 +11,6 @@ permissions:
   contents: read
 
 jobs:
-  verify-ansible:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install 'ansible-core==2.19.3'
-      - run: bash -n scripts/setup-cloudflare.sh ansible/tunnel/files/setup-vm.sh
-      - run: ansible-playbook -i ansible/inventory.ini ansible/tunnel.yml --syntax-check
-      - run: ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --syntax-check
   verify:
     runs-on: ubuntu-latest
     steps:

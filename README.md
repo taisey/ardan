@@ -12,14 +12,6 @@ Google Sheets の日程行
 
 MIT Licenseで公開しています。依存ライブラリのライセンスは各パッケージに帰属します。
 
-## 環境設定とデプロイ
-
-prod・localの環境固有設定とデプロイ処理は、privateな [ardan-manifest](https://github.com/taisey/ardan-manifest) で管理します。Ansible、Cloudflare Tunnel導入、運用scripts、デプロイCIもそちらにあります。
-
-本repoではアプリの検証CIを実行します。本番反映はmanifestの `versions/prod.yaml` に短縮commit SHAを指定し、mainへマージして行います。
-
-チームのlocal環境はmanifestの `environments/local.yaml` から `.env` を生成してください。一般的な設定項目と手動セットアップは以下を参照してください。
-
 ## Setup
 
 ```sh

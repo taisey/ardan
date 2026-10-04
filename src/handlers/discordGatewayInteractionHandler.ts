@@ -33,12 +33,19 @@ export class DiscordGatewayInteractionHandler {
     }
 
     await this.respond(interaction, { type: 5 });
+    let isFirstFollowUp = true;
     void command.execute({
       interactionToken: interaction.token,
       options: this.optionsFor(interaction.data.options),
       scheduling: this.scheduling,
       editingSchedule: this.editingSchedule,
-      followUp: (content) => this.followUp(interaction.token, content),
+      followUp: (content) => {
+        if (isFirstFollowUp) {
+          isFirstFollowUp = false;
+          return this.editOriginalResponse(interaction.token, content);
+        }
+        return this.followUp(interaction.token, content);
+      },
     });
   }
 
@@ -60,5 +67,12 @@ export class DiscordGatewayInteractionHandler {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
     });
     if (!result.ok) console.error(await discordHttpError('Discord follow-up', result));
+  }
+
+  private async editOriginalResponse(interactionToken: string, content: string): Promise<void> {
+    const result = await fetch(`https://discord.com/api/v10/webhooks/${this.applicationId}/${interactionToken}/messages/@original`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+    });
+    if (!result.ok) console.error(await discordHttpError('Discord original interaction response update', result));
   }
 }

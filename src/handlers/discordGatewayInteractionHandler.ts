@@ -9,6 +9,7 @@ type DiscordInteraction = {
   type: number;
   id: string;
   token: string;
+  application_id?: string;
   data?: { name?: string; options?: DiscordInteractionOption[] };
 };
 
@@ -32,13 +33,18 @@ export class DiscordGatewayInteractionHandler {
       return;
     }
 
+    const applicationId = interaction.application_id ?? this.applicationId;
+    if (interaction.application_id && interaction.application_id !== this.applicationId) {
+      console.warn(`Discord interaction application ID mismatch (configured=${this.applicationId}, interaction=${interaction.application_id}); using interaction application ID`);
+    }
+
     await this.respond(interaction, { type: 5 });
     void command.execute({
       interactionToken: interaction.token,
       options: this.optionsFor(interaction.data.options),
       scheduling: this.scheduling,
       editingSchedule: this.editingSchedule,
-      followUp: (content) => this.followUp(interaction.token, content),
+      followUp: (content) => this.followUp(applicationId, interaction.token, content),
     });
   }
 
@@ -57,8 +63,8 @@ export class DiscordGatewayInteractionHandler {
     if (!result.ok) throw await discordHttpError('Discord interaction callback', result, { method, url });
   }
 
-  private async followUp(interactionToken: string, content: string): Promise<void> {
-    const url = `https://discord.com/api/v10/webhooks/${this.applicationId}/${interactionToken}`;
+  private async followUp(applicationId: string, interactionToken: string, content: string): Promise<void> {
+    const url = `https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}`;
     const method = 'POST';
     const result = await fetch(url, {
       method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),

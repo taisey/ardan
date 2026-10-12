@@ -45,6 +45,20 @@ export class GoogleSheetsEditingScheduleRepository {
     await this.sheets.appendRow(`${await this.sheetTitle(this.editingScheduleSheetGid)}!A:E`, this.toRow(schedule));
   }
 
+  async markInProgress(number: string): Promise<EditingSchedule> {
+    const schedules = await this.listSchedules();
+    const requestedOrder = episodeOrder(number);
+    const matches = schedules.map((schedule, index) => ({ schedule, index }))
+      .filter(({ schedule }) => isEpisodeNumber(schedule.number) && episodeOrder(schedule.number) === requestedOrder);
+    if (!matches.length) throw new Error(`Editing schedule not found: ${number}`);
+    if (matches.length > 1) throw new Error(`Multiple editing schedules match: ${number}`);
+    const { schedule, index } = matches[0];
+    if (schedule.status === 'done') throw new Error(`Editing schedule is already done: ${number}`);
+    if (schedule.status === 'in_progress') return schedule;
+    await this.sheets.updateRow(`${await this.sheetTitle(this.editingScheduleSheetGid)}!D${index + 2}:D${index + 2}`, ['in_progress']);
+    return { ...schedule, status: 'in_progress' };
+  }
+
   async markDone(number: string): Promise<EditingSchedule> {
     const schedules = await this.listSchedules();
     const requestedOrder = episodeOrder(number);

@@ -62,6 +62,7 @@ describe('EditingScheduleService', () => {
         { number: '#067', startDueWeek: '2026/10/12', assign: 'yuma', status: 'done' },
       ]),
       listUsers: vi.fn().mockResolvedValue([{ name: 'taisei', discordId: '123' }]),
+      markInProgress: vi.fn().mockResolvedValue({ number: '#069', startDueWeek: '2026/10/12', assign: 'taisei', status: 'in_progress' }),
       saveMetadata: vi.fn().mockResolvedValue(undefined),
     };
     const discord = {
@@ -70,7 +71,11 @@ describe('EditingScheduleService', () => {
     };
     const service = new EditingScheduleService({} as never, schedules as never, discord as never, 'folder', () => '2026/10/12');
 
-    await expect(service.remindDueEditors()).resolves.toHaveLength(1);
+    await expect(service.remindDueEditors()).resolves.toEqual([
+      { number: '#069', startDueWeek: '2026/10/12', assign: 'taisei', status: 'in_progress' },
+    ]);
+    expect(schedules.markInProgress).toHaveBeenCalledWith('#069');
+    expect(schedules.markInProgress.mock.invocationCallOrder[0]).toBeLessThan(discord.createEditingReminderThread.mock.invocationCallOrder[0]);
     expect(discord.createEditingReminderThread).toHaveBeenCalledWith('#069', '2026/10/12');
     expect(schedules.saveMetadata).toHaveBeenCalledWith('#069', { discord: { reminderThreadId: 'thread-69' } });
     expect(discord.sendThreadMessage).toHaveBeenCalledWith(

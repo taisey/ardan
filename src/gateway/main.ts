@@ -44,8 +44,8 @@ let pollCreationRunning = false;
 let scheduledPoll: ReturnType<typeof setTimeout> | undefined;
 let unansweredPollReminderRunning = false;
 let scheduledUnansweredPollReminder: ReturnType<typeof setTimeout> | undefined;
-let editingReminderRunning = false;
-let scheduledEditingReminder: ReturnType<typeof setTimeout> | undefined;
+let editingScheduleRunning = false;
+let scheduledEditingMaintenance: ReturnType<typeof setTimeout> | undefined;
 let scheduledRssPoll: ReturnType<typeof setTimeout> | undefined;
 let stopping = false;
 
@@ -75,16 +75,22 @@ async function remindScheduledUnansweredPollVoters(): Promise<void> {
   }
 }
 
-async function remindScheduledEditors(): Promise<void> {
-  if (!editingSchedule || editingReminderRunning) return;
-  editingReminderRunning = true;
+async function maintainEditingSchedule(): Promise<void> {
+  if (!editingSchedule || editingScheduleRunning) return;
+  editingScheduleRunning = true;
+  try {
+    const created = await editingSchedule.syncFromDrive();
+    console.log(`Scheduled editing schedule sync: ${created.length} created`);
+  } catch (error) {
+    console.error('Scheduled editing schedule sync failed', error);
+  }
   try {
     const reminded = await editingSchedule.remindDueEditors();
     console.log(`Scheduled editing reminder: ${reminded.length} due`);
   } catch (error) {
     console.error('Scheduled editing reminder failed', error);
   } finally {
-    editingReminderRunning = false;
+    editingScheduleRunning = false;
   }
 }
 
@@ -92,7 +98,7 @@ gateway.start();
 console.log('Discord Gateway client started');
 scheduleNextPoll();
 scheduleNextUnansweredPollReminder();
-scheduleNextEditingReminder();
+scheduleNextEditingMaintenance();
 scheduleNextRssPoll();
 
 function scheduleNextRssPoll(): void {
@@ -135,15 +141,15 @@ function scheduleNextUnansweredPollReminder(): void {
   console.log(`Next scheduled unanswered recording-poll reminder: ${formatInTimeZone(nextMidnight, config.timezone)}`);
 }
 
-function scheduleNextEditingReminder(): void {
-  if (!editingSchedule || !editingConfig) return;
+function scheduleNextEditingMaintenance(): void {
+  if (!editingSchedule || !editingConfig || stopping) return;
   const now = new Date();
   const nextMidnight = nextMidnightInTimeZone(now, editingConfig.timezone);
-  scheduledEditingReminder = setTimeout(async () => {
-    await remindScheduledEditors();
-    scheduleNextEditingReminder();
+  scheduledEditingMaintenance = setTimeout(async () => {
+    await maintainEditingSchedule();
+    scheduleNextEditingMaintenance();
   }, Math.max(1_000, nextMidnight.getTime() - now.getTime()));
-  console.log(`Next scheduled editing reminder: ${formatInTimeZone(nextMidnight, editingConfig.timezone)}`);
+  console.log(`Next scheduled editing schedule sync and reminder: ${formatInTimeZone(nextMidnight, editingConfig.timezone)}`);
 }
 
 function formatInTimeZone(date: Date, timeZone: string): string {
@@ -166,7 +172,7 @@ function shutdown(): void {
   if (scheduledRssPoll) clearTimeout(scheduledRssPoll);
   if (scheduledPoll) clearTimeout(scheduledPoll);
   if (scheduledUnansweredPollReminder) clearTimeout(scheduledUnansweredPollReminder);
-  if (scheduledEditingReminder) clearTimeout(scheduledEditingReminder);
+  if (scheduledEditingMaintenance) clearTimeout(scheduledEditingMaintenance);
   gateway.stop();
 }
 

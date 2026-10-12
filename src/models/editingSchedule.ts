@@ -2,7 +2,7 @@ export type EditingSchedule = {
   number: string;
   startDueWeek: string;
   assign: string;
-  status: 'in_progress' | 'done';
+  status: '' | 'in_progress' | 'done';
   metadata?: Record<string, unknown>;
 };
 

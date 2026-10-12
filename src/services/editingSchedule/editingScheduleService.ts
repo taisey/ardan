@@ -28,7 +28,7 @@ export class EditingScheduleService {
     let dueWeek = this.nextDueWeek(latestDone?.startDueWeek);
     const created: EditingSchedule[] = [];
     for (const number of additions) {
-      const schedule = { number, startDueWeek: dueWeek, assign: assignees[assigneeIndex].name, status: 'in_progress' as const };
+      const schedule = { number, startDueWeek: dueWeek, assign: assignees[assigneeIndex].name, status: '' as const };
       await this.schedules.append(schedule);
       created.push(schedule);
       assigneeIndex = (assigneeIndex + 1) % assignees.length;
@@ -40,21 +40,24 @@ export class EditingScheduleService {
   async remindDueEditors(): Promise<EditingSchedule[]> {
     const [schedules, users] = await Promise.all([this.schedules.listSchedules(), this.schedules.listUsers()]);
     const currentWeek = weekStart(this.today());
-    const due = schedules.filter((schedule) => schedule.status === 'in_progress' && schedule.startDueWeek && weekStart(schedule.startDueWeek) === currentWeek);
+    const due = schedules.filter((schedule) => schedule.status !== 'done' && schedule.startDueWeek && weekStart(schedule.startDueWeek) === currentWeek);
     if (!due.length) return [];
     const usersByName = new Map(users.map((user) => [user.name, user.discordId]));
+    const reminded: EditingSchedule[] = [];
     for (const schedule of due) {
-      const discordId = usersByName.get(schedule.assign);
-      const content = `${discordId ? `<@${discordId}>` : schedule.assign || '担当未設定'} ${schedule.number} の編集をお願いします（開始予定週: ${schedule.startDueWeek}）。`;
-      let threadId = this.reminderThreadId(schedule.metadata);
+      const active = schedule.status === '' ? await this.schedules.markInProgress(schedule.number) : schedule;
+      const discordId = usersByName.get(active.assign);
+      const content = `${discordId ? `<@${discordId}>` : active.assign || '担当未設定'} ${active.number} の編集をお願いします（開始予定週: ${active.startDueWeek}）。`;
+      let threadId = this.reminderThreadId(active.metadata);
       if (!threadId) {
-        const thread = await this.discord.createEditingReminderThread(schedule.number, schedule.startDueWeek);
+        const thread = await this.discord.createEditingReminderThread(active.number, active.startDueWeek);
         threadId = thread.threadId;
-        await this.schedules.saveMetadata(schedule.number, this.withReminderThread(schedule.metadata, threadId));
+        await this.schedules.saveMetadata(active.number, this.withReminderThread(active.metadata, threadId));
       }
       await this.discord.sendThreadMessage(threadId, content, discordId ? [discordId] : []);
+      reminded.push(active);
     }
-    return due;
+    return reminded;
   }
 
   async notifyPublished(number: string): Promise<EditingSchedule> {

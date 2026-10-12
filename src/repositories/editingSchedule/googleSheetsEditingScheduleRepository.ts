@@ -14,8 +14,8 @@ export class GoogleSheetsEditingScheduleRepository {
     return rows.flatMap((row) => {
       const number = row[0]?.trim() ?? '';
       if (!number) return [];
-      const status = row[3]?.trim();
-      if (status !== 'in_progress' && status !== 'done') throw new Error(`${number} status must be in_progress or done`);
+      const status = row[3]?.trim() ?? '';
+      if (status !== '' && status !== 'in_progress' && status !== 'done') throw new Error(`${number} status must be blank, in_progress or done`);
       const metadata = this.parseMetadata(row[4]);
       return [{ number, startDueWeek: row[1]?.trim() ?? '', assign: row[2]?.trim() ?? '', status, ...(metadata ? { metadata } : {}) }];
     });
@@ -43,6 +43,20 @@ export class GoogleSheetsEditingScheduleRepository {
 
   async append(schedule: EditingSchedule): Promise<void> {
     await this.sheets.appendRow(`${await this.sheetTitle(this.editingScheduleSheetGid)}!A:E`, this.toRow(schedule));
+  }
+
+  async markInProgress(number: string): Promise<EditingSchedule> {
+    const schedules = await this.listSchedules();
+    const requestedOrder = episodeOrder(number);
+    const matches = schedules.map((schedule, index) => ({ schedule, index }))
+      .filter(({ schedule }) => isEpisodeNumber(schedule.number) && episodeOrder(schedule.number) === requestedOrder);
+    if (!matches.length) throw new Error(`Editing schedule not found: ${number}`);
+    if (matches.length > 1) throw new Error(`Multiple editing schedules match: ${number}`);
+    const { schedule, index } = matches[0];
+    if (schedule.status === 'done') throw new Error(`Editing schedule is already done: ${number}`);
+    if (schedule.status === 'in_progress') return schedule;
+    await this.sheets.updateRow(`${await this.sheetTitle(this.editingScheduleSheetGid)}!D${index + 2}:D${index + 2}`, ['in_progress']);
+    return { ...schedule, status: 'in_progress' };
   }
 
   async markDone(number: string): Promise<EditingSchedule> {

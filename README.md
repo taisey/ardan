@@ -144,7 +144,7 @@ user
 name | discord_id
 ```
 
-`status` は編集中の `in_progress` と、公開済みの `done` のいずれかです。
+`status` は空欄が未着手、`in_progress` が編集中、`done` が公開済みです。Driveから同期した行は空欄で追加します。
 
 `metadata` はJSON形式の拡張情報です。最初のリマインド時に `{"discord":{"reminderThreadId":"..."}}` が自動保存され、同じ回への以後のリマインドはそのDiscordスレッドに投稿されます。
 
@@ -174,7 +174,9 @@ npm run batch:remind-unanswered-recording-poll-voters
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 
-`batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が毎日0:00に実行します。
+`batch:remind-editing-schedule` は、開始予定週が当週で、`status` が空欄または `in_progress` の行を `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。空欄の行は先に `in_progress` へ更新します。過去週の未完了行は自動通知しません。
+
+常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）は、`TZ` のタイムゾーンで毎日00:00:00にDriveから編集スケジュールを同期し、その後に編集担当者へリマインドします。同期に失敗しても、既存のスケジュールに対するリマインドは実行します。起動直後には同期しません。Batchコマンドと `/sync_editing_schedule` は手動実行に使用します。
 
 `/sync_editing_schedule` は同期だけ、`/remind_editing_schedule` はリマインドだけを手動実行します。`/notify_editing_published episode:#123` は公開通知を投稿し、対象行の `status` を `done` に更新します。追加後はコマンド定義も同期してください。
 

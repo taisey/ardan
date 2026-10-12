@@ -230,7 +230,9 @@ npm run batch:remind-unanswered-recording-poll-voters
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 
-`batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が毎日0:00に実行します。
+`batch:remind-editing-schedule` は、開始予定週が当週の `in_progress` 行だけを `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。過去週の未完了行は自動通知しません。
+
+常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）は、`TZ` のタイムゾーンで毎日00:00:00にDriveから編集スケジュールを同期し、その後に編集担当者へリマインドします。同期に失敗しても、既存のスケジュールに対するリマインドは実行します。起動直後には同期しません。Batchコマンドと `/sync_editing_schedule` は手動実行に使用します。
 
 `/sync_editing_schedule` は同期だけ、`/remind_editing_schedule` はリマインドだけを手動実行します。`/notify_editing_published episode:#123` は公開通知を投稿し、対象行の `status` を `done` に更新します。追加後はコマンド定義も同期してください。
 

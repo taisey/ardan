@@ -14,8 +14,8 @@ export class GoogleSheetsEditingScheduleRepository {
     return rows.flatMap((row) => {
       const number = row[0]?.trim() ?? '';
       if (!number) return [];
-      const status = row[3]?.trim();
-      if (status !== 'in_progress' && status !== 'done') throw new Error(`${number} status must be in_progress or done`);
+      const status = row[3]?.trim() ?? '';
+      if (status !== '' && status !== 'in_progress' && status !== 'done') throw new Error(`${number} status must be blank, in_progress or done`);
       const metadata = this.parseMetadata(row[4]);
       return [{ number, startDueWeek: row[1]?.trim() ?? '', assign: row[2]?.trim() ?? '', status, ...(metadata ? { metadata } : {}) }];
     });

@@ -12,8 +12,8 @@ describe('EditingScheduleService', () => {
     const service = new EditingScheduleService(drive as never, schedules as never, {} as never, 'folder', () => '2026/09/24');
 
     await expect(service.syncFromDrive()).resolves.toEqual([
-      { number: '#11', startDueWeek: '2026/09/28', assign: 'C', status: 'in_progress' },
-      { number: '#12', startDueWeek: '2026/10/05', assign: 'A', status: 'in_progress' },
+      { number: '#11', startDueWeek: '2026/09/28', assign: 'C', status: '' },
+      { number: '#12', startDueWeek: '2026/10/05', assign: 'A', status: '' },
     ]);
   });
 
@@ -27,7 +27,7 @@ describe('EditingScheduleService', () => {
     const service = new EditingScheduleService(drive as never, schedules as never, {} as never, 'folder', () => '2026/09/24');
 
     await expect(service.syncFromDrive()).resolves.toEqual([
-      { number: '#068', startDueWeek: '2026/10/05', assign: 'Aoi', status: 'in_progress' },
+      { number: '#068', startDueWeek: '2026/10/05', assign: 'Aoi', status: '' },
     ]);
   });
 
@@ -52,6 +52,29 @@ describe('EditingScheduleService', () => {
     expect(schedules.saveMetadata).toHaveBeenCalledWith('#11', { discord: { reminderThreadId: 'thread-11' } });
     expect(discord.sendThreadMessage).toHaveBeenCalledWith(
       'thread-11', '<@123> #11 の編集をお願いします（開始予定週: 2026/09/21）。', ['123'],
+    );
+  });
+
+  it('reminds a scheduled editor whose status is blank', async () => {
+    const schedules = {
+      listSchedules: vi.fn().mockResolvedValue([
+        { number: '#069', startDueWeek: '2026/10/12', assign: 'taisei', status: '' },
+        { number: '#067', startDueWeek: '2026/10/12', assign: 'yuma', status: 'done' },
+      ]),
+      listUsers: vi.fn().mockResolvedValue([{ name: 'taisei', discordId: '123' }]),
+      saveMetadata: vi.fn().mockResolvedValue(undefined),
+    };
+    const discord = {
+      createEditingReminderThread: vi.fn().mockResolvedValue({ threadId: 'thread-69' }),
+      sendThreadMessage: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = new EditingScheduleService({} as never, schedules as never, discord as never, 'folder', () => '2026/10/12');
+
+    await expect(service.remindDueEditors()).resolves.toHaveLength(1);
+    expect(discord.createEditingReminderThread).toHaveBeenCalledWith('#069', '2026/10/12');
+    expect(schedules.saveMetadata).toHaveBeenCalledWith('#069', { discord: { reminderThreadId: 'thread-69' } });
+    expect(discord.sendThreadMessage).toHaveBeenCalledWith(
+      'thread-69', '<@123> #069 の編集をお願いします（開始予定週: 2026/10/12）。', ['123'],
     );
   });
 

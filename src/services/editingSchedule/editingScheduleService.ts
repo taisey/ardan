@@ -28,7 +28,7 @@ export class EditingScheduleService {
     let dueWeek = this.nextDueWeek(latestDone?.startDueWeek);
     const created: EditingSchedule[] = [];
     for (const number of additions) {
-      const schedule = { number, startDueWeek: dueWeek, assign: assignees[assigneeIndex].name, status: 'in_progress' as const };
+      const schedule = { number, startDueWeek: dueWeek, assign: assignees[assigneeIndex].name, status: '' as const };
       await this.schedules.append(schedule);
       created.push(schedule);
       assigneeIndex = (assigneeIndex + 1) % assignees.length;
@@ -40,7 +40,7 @@ export class EditingScheduleService {
   async remindDueEditors(): Promise<EditingSchedule[]> {
     const [schedules, users] = await Promise.all([this.schedules.listSchedules(), this.schedules.listUsers()]);
     const currentWeek = weekStart(this.today());
-    const due = schedules.filter((schedule) => schedule.status === 'in_progress' && schedule.startDueWeek && weekStart(schedule.startDueWeek) === currentWeek);
+    const due = schedules.filter((schedule) => schedule.status !== 'done' && schedule.startDueWeek && weekStart(schedule.startDueWeek) === currentWeek);
     if (!due.length) return [];
     const usersByName = new Map(users.map((user) => [user.name, user.discordId]));
     for (const schedule of due) {

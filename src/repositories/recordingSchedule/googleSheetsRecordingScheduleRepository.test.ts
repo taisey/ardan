@@ -15,10 +15,10 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
     const sheets = client([['2026-10-01', '2026-10-15', '', '']]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
     await expect(repository.claimNextPollSchedule('2026/10/01')).resolves.toEqual({
-      startDate: '2026/10/01', endDate: '2026/10/15', status: 'in_progress',
+      startDate: '2026/10/01', endDate: '2026/10/15', status: 'collecting',
     });
     expect(sheets.updateRow).toHaveBeenCalledWith('Sheet1!A2:E2', [
-      '2026/10/01', '2026/10/15', '', 'in_progress', '',
+      '2026/10/01', '2026/10/15', '', 'collecting', '',
     ]);
   });
 
@@ -32,19 +32,41 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
     ]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
     await expect(repository.claimNextPollSchedule('2026/10/01')).resolves.toEqual({
-      startDate: '2026/09/10', endDate: '2026/10/05', status: 'in_progress',
+      startDate: '2026/09/10', endDate: '2026/10/05', status: 'collecting',
     });
   });
 
-  it('does not claim a schedule while an in-progress schedule has not expired', async () => {
+  it('does not claim a schedule while a collecting schedule has not expired', async () => {
     const sheets = client([
-      ['2026/10/01', '2026/10/15', '', 'in_progress'],
+      ['2026/10/01', '2026/10/15', '', 'collecting'],
       ['2026/10/16', '2026/10/20', '', ''],
     ]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
 
     await expect(repository.claimNextPollSchedule('2026/10/10')).resolves.toBeNull();
     expect(sheets.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('keeps a finalizing schedule active after its candidate range ends', async () => {
+    const sheets = client([
+      ['2026/09/01', '2026/09/30', '', 'finalizing'],
+      ['2026/10/01', '2026/10/15', '', ''],
+    ]);
+    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
+
+    await expect(repository.claimNextPollSchedule('2026/10/01')).resolves.toBeNull();
+    expect(sheets.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('marks a collecting schedule as finalizing without changing its metadata', async () => {
+    const metadata = '{"discord":{"availabilityThreadId":"thread1"}}';
+    const sheets = client([['2026/10/01', '2026/10/15', '', 'collecting', metadata]]);
+    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
+
+    await repository.markFinalizing({
+      startDate: '2026/10/01', endDate: '2026/10/15', status: 'collecting', metadata: JSON.parse(metadata),
+    });
+    expect(sheets.updateRow).toHaveBeenCalledWith('Sheet1!D2:D2', ['finalizing']);
   });
 
   it('does not claim a schedule until the latest completed schedule has expired', async () => {
@@ -58,32 +80,32 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
     expect(sheets.updateRow).not.toHaveBeenCalled();
 
     await expect(repository.claimNextPollSchedule('2026/10/16')).resolves.toEqual({
-      startDate: '2026/10/16', endDate: '2026/10/20', status: 'in_progress',
+      startDate: '2026/10/16', endDate: '2026/10/20', status: 'collecting',
     });
   });
 
-  it('cancels expired in-progress schedules before claiming the next schedule', async () => {
+  it('skips expired collecting schedules before claiming the next schedule', async () => {
     const sheets = client([
-      ['2026/09/01', '2026/09/30', '', 'in_progress'],
+      ['2026/09/01', '2026/09/30', '', 'collecting'],
       ['2026/10/01', '2026/10/15', '', ''],
     ]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
 
     await expect(repository.claimNextPollSchedule('2026/10/01')).resolves.toEqual({
-      startDate: '2026/10/01', endDate: '2026/10/15', status: 'in_progress',
+      startDate: '2026/10/01', endDate: '2026/10/15', status: 'collecting',
     });
     expect(sheets.updateRow).toHaveBeenNthCalledWith(1, 'Sheet1!A2:E2', [
-      '2026/09/01', '2026/09/30', '', 'canceled', '',
+      '2026/09/01', '2026/09/30', '', 'skipped', '',
     ]);
     expect(sheets.updateRow).toHaveBeenNthCalledWith(2, 'Sheet1!A3:E3', [
-      '2026/10/01', '2026/10/15', '', 'in_progress', '',
+      '2026/10/01', '2026/10/15', '', 'collecting', '',
     ]);
   });
 
-  it('completes the newest in-progress row', async () => {
+  it('completes the newest active row', async () => {
     const sheets = client([
-      ['2026/09/01', '2026/09/15', '', 'in_progress'],
-      ['2026/10/01', '2026/10/15', '', 'in_progress'],
+      ['2026/09/01', '2026/09/15', '', 'collecting'],
+      ['2026/10/01', '2026/10/15', '', 'finalizing'],
     ]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
     await repository.complete('2026/10/08');
@@ -93,9 +115,41 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
   });
 
   it('rejects an out-of-period fix date without updating the sheet', async () => {
-    const sheets = client([['2026/10/01', '2026/10/15', '', 'in_progress']]);
+    const sheets = client([['2026/10/01', '2026/10/15', '', 'collecting']]);
     const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
     await expect(repository.complete('2026/10/16')).rejects.toThrow('fixedDate must be between');
     expect(sheets.updateRow).not.toHaveBeenCalled();
+  });
+
+  it.each(['collecting', 'finalizing'])('skips the latest active %s schedule without changing metadata', async (status) => {
+    const sheets = client([
+      ['2026/09/01', '2026/09/15', '2026/09/10', 'done', '{}'],
+      ['2026/10/01', '2026/10/15', '', status, '{"discord":{"availabilityThreadId":"thread1"}}'],
+    ]);
+    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
+    await repository.skip();
+    expect(sheets.updateRow).toHaveBeenCalledWith('Sheet1!D3:D3', ['skipped']);
+  });
+
+  it('does not skip a completed schedule', async () => {
+    const sheets = client([['2026/10/01', '2026/10/15', '2026/10/08', 'done']]);
+    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
+    await expect(repository.skip()).rejects.toThrow('No active recording schedule exists');
+    expect(sheets.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('can claim the next candidate after a schedule is skipped', async () => {
+    const sheets = client([
+      ['2026/10/01', '2026/10/15', '', 'skipped'],
+      ['2026/10/16', '2026/10/20', '', ''],
+    ]);
+    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
+
+    await expect(repository.claimNextPollSchedule('2026/10/16')).resolves.toMatchObject({
+      startDate: '2026/10/16', status: 'collecting',
+    });
+    expect(sheets.updateRow).toHaveBeenCalledWith('Sheet1!A3:E3', [
+      '2026/10/16', '2026/10/20', '', 'collecting', '',
+    ]);
   });
 });

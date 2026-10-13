@@ -63,11 +63,11 @@ export class DiscordClient {
     return { threadId: thread.id };
   }
 
-  async sendThreadMessage(threadId: string, content: string, userIds: string[] = []): Promise<void> {
+  async sendThreadMessage(threadId: string, content: string, userIds: string[] = [], roleIds: string[] = []): Promise<void> {
     const response = await fetch(`https://discord.com/api/v10/channels/${threadId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, allowed_mentions: { parse: [], users: userIds } }),
+      body: JSON.stringify({ content, allowed_mentions: { parse: [], users: userIds, roles: roleIds } }),
     });
     if (!response.ok) throw await discordHttpError('Discord thread message', response);
   }

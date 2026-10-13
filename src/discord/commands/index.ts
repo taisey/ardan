@@ -1,6 +1,7 @@
 import { aggregatePollResultCommand } from './aggregatePollResult.js';
 import { createRecordingDatePollCommand } from './createRecordingDatePoll.js';
 import { fixRecordingDateCommand } from './fixRecordingDate.js';
+import { skipRecordingCoordinationCommand } from './skipRecordingCoordination.js';
 import { notifyEditingPublishedCommand } from './notifyEditingPublished.js';
 import { syncEditingScheduleCommand } from './syncEditingSchedule.js';
 import { remindEditingScheduleCommand } from './remindEditingSchedule.js';
@@ -11,6 +12,7 @@ export const discordCommands = [
   createRecordingDatePollCommand,
   aggregatePollResultCommand,
   fixRecordingDateCommand,
+  skipRecordingCoordinationCommand,
   notifyEditingPublishedCommand,
   syncEditingScheduleCommand,
   remindEditingScheduleCommand,

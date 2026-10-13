@@ -58,7 +58,8 @@ npm run discord:sync-commands
 | `/create_recording_date_poll` | 最新の作成対象日程についてPollを作成 |
 | `/aggregate_poll_result` | 日付ごとの○・△・×と投票者を集計し、候補日を最後に表示 |
 | `/fix_recording_date date:YYYY/MM/DD` | 進行中の日程を指定日で確定 |
-| `/remind_unanswered` | 投票に未回答のメンバーを日程調整スレッドでリマインド |
+| `/skip_recording_coordination` | 進行中の録音日程調整を見送る |
+| `/remind_unanswered` | 未回答者、または全員回答後も未確定の日程を日程調整スレッドでリマインド |
 | `/poll_rss` | Podcast RSSを手動取得 |
 
 Guild Commandなので、同期結果は指定したDiscordサーバーだけに即時反映されます。
@@ -72,28 +73,28 @@ start_date | end_date | fixed_date | status | metadata
 ```
 
 - `start_date` と `end_date` は `YYYY/MM/DD` の候補範囲です。
-- `status` が空欄の行は未開始、`in_progress` は投票中、`done` は確定済み、`canceled` は期限切れで取り消し済みです。
+- `status` が空欄の行は未開始、`collecting` は回答収集中、`finalizing` は日程確定待ち、`done` は確定済み、`skipped` は日程を決めずに見送った状態です。
 - `metadata` は拡張用JSONです。現在はDiscordスレッドIDと日付ごとのPollメッセージIDを保存します。
 
 ### 作成処理: `/create_recording_date_poll` とBatch
 
-Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `in_progress` 行を確認します。`end_date` が昨日以前の行は `canceled` に更新し、今日以降の `in_progress` 行が1件でもあれば新規作成しません。確定済み（`done`）行のうち最新の `end_date` が今日以降の場合も、新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
+Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `collecting` 行を確認します。`end_date` が昨日以前の行は `skipped` に更新し、今日以降の `collecting` 行が1件でもあれば新規作成しません。`finalizing` 行がある場合も、日程が確定するまで新規作成しません。確定済み（`done`）行のうち最新の `end_date` が今日以降の場合も、新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
 
 ```text
 対象行なし または end_date < 今日
   └─ skip
 
-期限切れの in_progress 行あり
-  └─ status を canceled に更新して次の判定へ
+期限切れの collecting 行あり
+  └─ status を skipped に更新して次の判定へ
 
-期限内の in_progress 行あり
+期限内の collecting 行または finalizing 行あり
   └─ skip
 
 done 行の最新 end_date が今日以降
   └─ skip
 
 対象行が status 空欄
-  └─ status を in_progress に更新
+  └─ status を collecting に更新
        └─ ロールmention・タイトル・候補範囲の親メッセージを投稿
             └─ そのスレッドへ各候補日の○・△・× Pollを作成
 
@@ -101,23 +102,25 @@ done 行の最新 end_date が今日以降
 
 Pollは各日付につき単一選択で、○（参加可能）・△（調整可）・×（不可）を選べます。Pollの回答期間とスレッドの自動アーカイブは7日間です。
 
-作成中にDiscordやSheetsでエラーになった場合、処理は失敗としてログに出ます。`in_progress` への更新後に失敗した行は自動再作成されないため、内容を確認してから手動で状態を調整してください。
+作成中にDiscordやSheetsでエラーになった場合、処理は失敗としてログに出ます。`collecting` への更新後に失敗した行は自動再作成されないため、内容を確認してから手動で状態を調整してください。
 
 ### 集計と確定
 
-`/aggregate_poll_result` は最新の `in_progress` 行に記録されたPollを順番に取得し、○・△・×の人数と表示名を日付ごとに出します。Discord APIの429応答時は `retry_after` を待って再試行します。
+`/aggregate_poll_result` は最新の `collecting` または `finalizing` 行に記録されたPollを順番に取得し、○・△・×の人数と表示名を日付ごとに出します。Discord APIの429応答時は `retry_after` を待って再試行します。
 
 集計の末尾には候補日を表示します。×が0人の日に絞り、○の最多日が同率で複数ならその日だけ、最多日が1日なら2位（同率を含む）までを候補にします。
 
-`/fix_recording_date` は、最新の `in_progress` 行について指定日が候補範囲内なら、次のように更新します。
+`/fix_recording_date` は、最新の `collecting` または `finalizing` 行について指定日が候補範囲内なら、次のように更新します。
 
 ```text
-in_progress
+collecting または finalizing
   └─ fixed_date = 指定日、status = done
        └─ 最新の done 行の end_date を過ぎるまで、新規 Poll 作成を skip
 ```
 
-候補範囲外の日付、または `in_progress` の行がない場合はSheetsを更新しません。
+候補範囲外の日付、または進行中の行がない場合はSheetsを更新しません。
+
+`/skip_recording_coordination` は最新の `collecting` または `finalizing` 行を `skipped` にします。Pollの履歴は `metadata` に残ります。進行中の行がない場合は更新しません。次の候補を始めるには `/create_recording_date_poll` を実行します。
 
 ## Batchと定時実行
 
@@ -170,7 +173,7 @@ npm run batch:remind-editing-schedule
 npm run batch:remind-unanswered-recording-poll-voters
 ```
 
-`batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。未回答者がいない場合は投稿しません。DiscordユーザーIDで照合するため、表示名の変更には影響されません。
+`batch:remind-unanswered-recording-poll-voters` は、最新の `collecting` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。全員が回答済みなら、メンショングループを付けて `/aggregate_poll_result` と同じ集計結果をスレッドに投稿し、状態を `finalizing` に更新します。`finalizing` の間は、実行のたびに集計結果を再投稿せずメンショングループへリマインドします。進行中の日程がない場合は投稿しません。DiscordユーザーIDで回答を照合するため、表示名の変更には影響されません。
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 

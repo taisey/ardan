@@ -72,7 +72,7 @@ start_date | end_date | fixed_date | status | metadata
 ```
 
 - `start_date` と `end_date` は `YYYY/MM/DD` の候補範囲です。
-- `status` が空欄の行は未開始、`collecting` は回答収集中、`finalizing` は日程確定待ち、`done` は確定済み、`canceled` は期限切れで取り消し済みです。既存の `in_progress` 行は `collecting` として読み込みます。
+- `status` が空欄の行は未開始、`collecting` は回答収集中、`finalizing` は日程確定待ち、`done` は確定済み、`canceled` は期限切れで取り消し済みです。
 - `metadata` は拡張用JSONです。現在はDiscordスレッドIDと日付ごとのPollメッセージIDを保存します。
 
 ### 作成処理: `/create_recording_date_poll` とBatch

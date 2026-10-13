@@ -58,13 +58,6 @@ describe('GoogleSheetsRecordingScheduleRepository', () => {
     expect(sheets.updateRow).not.toHaveBeenCalled();
   });
 
-  it('treats a legacy in_progress row as collecting', async () => {
-    const sheets = client([['2026/10/01', '2026/10/15', '', 'in_progress']]);
-    const repository = new GoogleSheetsRecordingScheduleRepository(sheets as never, 0);
-
-    await expect(repository.findLatestActive()).resolves.toMatchObject({ status: 'collecting' });
-  });
-
   it('marks a collecting schedule as finalizing without changing its metadata', async () => {
     const metadata = '{"discord":{"availabilityThreadId":"thread1"}}';
     const sheets = client([['2026/10/01', '2026/10/15', '', 'collecting', metadata]]);

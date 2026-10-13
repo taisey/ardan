@@ -89,7 +89,7 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
       if (!row.some(Boolean)) return [];
       const schedule: RecordingSchedule = {
         startDate: this.toSlashDate(row[0] ?? ''), endDate: this.toSlashDate(row[1] ?? ''), fixedDate: row[2] ? this.toSlashDate(row[2]) : undefined,
-        status: row[3] === 'in_progress' ? 'collecting' : row[3] ? row[3] as RecordingSchedule['status'] : undefined,
+        status: row[3] ? row[3] as RecordingSchedule['status'] : undefined,
         metadata: this.parseMetadata(row[4]),
       };
       assertValidRecordingSchedule(schedule);

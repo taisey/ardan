@@ -6,4 +6,5 @@ export interface RecordingScheduleRepository {
   markFinalizing(schedule: RecordingSchedule): Promise<void>;
   saveMetadata(schedule: RecordingSchedule, metadata: Record<string, unknown>): Promise<void>;
   complete(fixedDate: string): Promise<void>;
+  skip(): Promise<void>;
 }

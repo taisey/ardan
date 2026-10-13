@@ -116,6 +116,10 @@ export class DiscordSchedulingService implements SchedulingService {
     await this.recordingSchedules.complete(fixedDate);
   }
 
+  async skipRecordingCoordination(): Promise<void> {
+    await this.recordingSchedules.skip();
+  }
+
   private withPolls(metadata: Record<string, unknown> | undefined, polls: AvailabilityPoll[], threadId: string): Record<string, unknown> {
     const discord = metadata?.discord && typeof metadata.discord === 'object' && !Array.isArray(metadata.discord)
       ? metadata.discord as Record<string, unknown> : {};

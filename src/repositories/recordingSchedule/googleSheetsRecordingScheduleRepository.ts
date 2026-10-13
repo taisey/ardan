@@ -15,7 +15,7 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
     const title = await this.getSheetTitle();
 
     for (const expired of schedules.filter(({ schedule }) => schedule.status === 'collecting' && schedule.endDate < today)) {
-      await this.sheets.updateRow(`${title}!A${expired.rowNumber}:E${expired.rowNumber}`, this.toRow({ ...expired.schedule, status: 'canceled' }));
+      await this.sheets.updateRow(`${title}!A${expired.rowNumber}:E${expired.rowNumber}`, this.toRow({ ...expired.schedule, status: 'skipped' }));
     }
 
     if (schedules.some(({ schedule }) =>
@@ -80,6 +80,16 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
     assertValidRecordingSchedule(completed);
     const title = await this.getSheetTitle();
     await this.sheets.updateRow(`${title}!A${latest.rowNumber}:E${latest.rowNumber}`, this.toRow(completed));
+  }
+
+  async skip(): Promise<void> {
+    const schedules = await this.readSchedules();
+    const latest = schedules
+      .filter(({ schedule }) => schedule.status === 'collecting' || schedule.status === 'finalizing')
+      .sort((left, right) => right.schedule.startDate.localeCompare(left.schedule.startDate))[0];
+    if (!latest) throw new Error('No active recording schedule exists');
+    const title = await this.getSheetTitle();
+    await this.sheets.updateRow(`${title}!D${latest.rowNumber}:D${latest.rowNumber}`, ['skipped']);
   }
 
   private async readSchedules(): Promise<Array<{ rowNumber: number; schedule: RecordingSchedule }>> {

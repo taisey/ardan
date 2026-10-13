@@ -58,6 +58,7 @@ npm run discord:sync-commands
 | `/create_recording_date_poll` | 最新の作成対象日程についてPollを作成 |
 | `/aggregate_poll_result` | 日付ごとの○・△・×と投票者を集計し、候補日を最後に表示 |
 | `/fix_recording_date date:YYYY/MM/DD` | 進行中の日程を指定日で確定 |
+| `/skip_recording_coordination` | 進行中の録音日程調整を見送る |
 | `/remind_unanswered` | 未回答者、または全員回答後も未確定の日程を日程調整スレッドでリマインド |
 | `/poll_rss` | Podcast RSSを手動取得 |
 
@@ -72,19 +73,19 @@ start_date | end_date | fixed_date | status | metadata
 ```
 
 - `start_date` と `end_date` は `YYYY/MM/DD` の候補範囲です。
-- `status` が空欄の行は未開始、`collecting` は回答収集中、`finalizing` は日程確定待ち、`done` は確定済み、`canceled` は期限切れで取り消し済みです。
+- `status` が空欄の行は未開始、`collecting` は回答収集中、`finalizing` は日程確定待ち、`done` は確定済み、`skipped` は日程を決めずに見送った状態です。
 - `metadata` は拡張用JSONです。現在はDiscordスレッドIDと日付ごとのPollメッセージIDを保存します。
 
 ### 作成処理: `/create_recording_date_poll` とBatch
 
-Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `collecting` 行を確認します。`end_date` が昨日以前の行は `canceled` に更新し、今日以降の `collecting` 行が1件でもあれば新規作成しません。`finalizing` 行がある場合も、日程が確定するまで新規作成しません。確定済み（`done`）行のうち最新の `end_date` が今日以降の場合も、新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
+Slash Commandと `batch:create-recording-date-poll` は同じ作成処理を呼びます。作成前にすべての `collecting` 行を確認します。`end_date` が昨日以前の行は `skipped` に更新し、今日以降の `collecting` 行が1件でもあれば新規作成しません。`finalizing` 行がある場合も、日程が確定するまで新規作成しません。確定済み（`done`）行のうち最新の `end_date` が今日以降の場合も、新規作成しません。作成可能な場合、対象候補は `end_date` が今日以降の未開始行のうち、最も早く終了する1行です。
 
 ```text
 対象行なし または end_date < 今日
   └─ skip
 
 期限切れの collecting 行あり
-  └─ status を canceled に更新して次の判定へ
+  └─ status を skipped に更新して次の判定へ
 
 期限内の collecting 行または finalizing 行あり
   └─ skip
@@ -118,6 +119,8 @@ collecting または finalizing
 ```
 
 候補範囲外の日付、または進行中の行がない場合はSheetsを更新しません。
+
+`/skip_recording_coordination` は最新の `collecting` または `finalizing` 行を `skipped` にします。Pollの履歴は `metadata` に残ります。進行中の行がない場合は更新しません。次の候補を始めるには `/create_recording_date_poll` を実行します。
 
 ## Batchと定時実行
 

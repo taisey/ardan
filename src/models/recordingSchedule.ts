@@ -1,4 +1,4 @@
-export type RecordingScheduleStatus = 'collecting' | 'finalizing' | 'done' | 'canceled';
+export type RecordingScheduleStatus = 'collecting' | 'finalizing' | 'done' | 'skipped';
 
 export interface RecordingSchedule {
   startDate: string;
@@ -9,8 +9,8 @@ export interface RecordingSchedule {
 }
 
 export function assertValidRecordingSchedule(schedule: RecordingSchedule): void {
-  if (schedule.status !== undefined && schedule.status !== 'collecting' && schedule.status !== 'finalizing' && schedule.status !== 'done' && schedule.status !== 'canceled') {
-    throw new Error('status must be collecting, finalizing, done, or canceled');
+  if (schedule.status !== undefined && schedule.status !== 'collecting' && schedule.status !== 'finalizing' && schedule.status !== 'done' && schedule.status !== 'skipped') {
+    throw new Error('status must be collecting, finalizing, done, or skipped');
   }
   if (!isLocalDate(schedule.startDate) || !isLocalDate(schedule.endDate)) {
     throw new Error('startDate and endDate must be YYYY/MM/DD calendar dates');
@@ -22,8 +22,8 @@ export function assertValidRecordingSchedule(schedule: RecordingSchedule): void 
   if (schedule.status === 'done' && !isLocalDate(schedule.fixedDate ?? '')) {
     throw new Error('done schedules require a YYYY/MM/DD fixedDate');
   }
-  if (schedule.status === 'canceled' && schedule.fixedDate) {
-    throw new Error('canceled schedules must not have fixedDate');
+  if (schedule.status === 'skipped' && schedule.fixedDate) {
+    throw new Error('skipped schedules must not have fixedDate');
   }
 }
 

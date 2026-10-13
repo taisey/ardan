@@ -4,7 +4,7 @@ import { candidateDatesFor, DiscordSchedulingService } from './discordScheduling
 describe('DiscordSchedulingService', () => {
   it('skips a poll when no schedule can be claimed', async () => {
     const discord = { createAvailabilityPoll: vi.fn() };
-    const schedules = { claimNextPollSchedule: vi.fn().mockResolvedValue(null), findLatestActive: vi.fn(), markFinalizing: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
+    const schedules = { claimNextPollSchedule: vi.fn().mockResolvedValue(null), findLatestActive: vi.fn(), markFinalizing: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn(), skip: vi.fn() };
     const service = new DiscordSchedulingService(discord as never, schedules, () => '2026/10/01', 'guild', 'role');
     await expect(service.createRecordingDatePoll())
       .resolves.toEqual({ created: false });
@@ -17,7 +17,7 @@ describe('DiscordSchedulingService', () => {
       createAvailabilityPoll: vi.fn().mockResolvedValueOnce({ messageId: 'm1' }).mockResolvedValueOnce({ messageId: 'm2' }).mockResolvedValueOnce({ messageId: 'm3' }),
     };
     const schedule = { startDate: '2026/10/01', endDate: '2026/10/03', status: 'collecting' as const };
-    const schedules = { claimNextPollSchedule: vi.fn().mockResolvedValue(schedule), findLatestActive: vi.fn(), markFinalizing: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn() };
+    const schedules = { claimNextPollSchedule: vi.fn().mockResolvedValue(schedule), findLatestActive: vi.fn(), markFinalizing: vi.fn(), saveMetadata: vi.fn(), complete: vi.fn(), skip: vi.fn() };
     const service = new DiscordSchedulingService(discord as never, schedules, () => '2026/10/01', 'guild', 'role');
     await expect(service.createRecordingDatePoll())
       .resolves.toEqual({ created: true });
@@ -168,5 +168,14 @@ describe('DiscordSchedulingService', () => {
     await service.completeRecordingDate('2026/10/02');
 
     expect(schedules.complete).toHaveBeenCalledWith('2026/10/02');
+  });
+
+  it('skips the active recording coordination', async () => {
+    const schedules = { skip: vi.fn().mockResolvedValue(undefined) };
+    const service = new DiscordSchedulingService({} as never, schedules as never, () => '2026/10/01', 'guild', 'role');
+
+    await service.skipRecordingCoordination();
+
+    expect(schedules.skip).toHaveBeenCalledOnce();
   });
 });

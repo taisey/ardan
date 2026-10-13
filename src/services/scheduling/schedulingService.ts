@@ -12,4 +12,5 @@ export interface SchedulingService {
   remindUnansweredRecordingPollVoters(): Promise<string[]>;
   aggregatePollResults(): Promise<AvailabilityResult[]>;
   completeRecordingDate(fixedDate: string): Promise<void>;
+  skipRecordingCoordination(): Promise<void>;
 }

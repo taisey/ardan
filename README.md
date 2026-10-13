@@ -170,7 +170,7 @@ npm run batch:remind-editing-schedule
 npm run batch:remind-unanswered-recording-poll-voters
 ```
 
-`batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。全員が回答済みなら、メンショングループを付けて `/aggregate_poll_result` と同じ集計結果をスレッドに一度だけ投稿します。翌日以降も日程が確定していなければ、集計結果を再投稿せず、メンショングループへ1日1回リマインドします。投稿の進捗、完了状態、最終リマインド日は、その日程行の `metadata.discord.pollResultAnnouncement` に保存します。投票中の日程がない場合は投稿しません。DiscordユーザーIDで回答を照合するため、表示名の変更には影響されません。
+`batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。全員が回答済みなら、メンショングループを付けて `/aggregate_poll_result` と同じ集計結果をスレッドに一度だけ投稿します。日程が未確定の間は、その後の実行のたびに、集計結果を再投稿せずメンショングループへリマインドします。投稿の進捗と完了状態は、その日程行の `metadata.discord.pollResultAnnouncement` に保存します。投票中の日程がない場合は投稿しません。DiscordユーザーIDで回答を照合するため、表示名の変更には影響されません。
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 

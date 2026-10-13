@@ -14,7 +14,7 @@ describe('remindUnansweredCommand', () => {
     expect(remind).toHaveBeenCalledOnce();
     expect(followUp).toHaveBeenCalledWith(ids.length
       ? `未回答リマインドを日程調整スレッドに送信しました。対象: ${ids.length}人。`
-      : '未回答者はいません。投票中の日程がある場合、集計結果は初回のみ投稿し、未確定ならメンショングループへ1日1回リマインドします。');
+      : '未回答者はいません。投票中の日程がある場合、集計結果は初回のみ投稿し、以後は実行のたびにメンショングループへリマインドします。');
   });
   it('reports a failure rather than success', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});

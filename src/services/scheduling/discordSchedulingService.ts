@@ -10,7 +10,7 @@ import type {
 const POLL_TITLE = '次回録音の日程調整';
 
 type AvailabilityPoll = { date: string; messageId: string; channelId?: string };
-type ResultAnnouncement = { status: 'sending' | 'done'; sentMessages: number; lastReminderDate?: string };
+type ResultAnnouncement = { status: 'sending' | 'done'; sentMessages: number };
 
 export function todayInTimeZone(timeZone: string): string {
   const values = new Intl.DateTimeFormat('en-US', {
@@ -78,18 +78,12 @@ export class DiscordSchedulingService implements SchedulingService {
       const mentions = unanswered.map((memberId) => `<@${memberId}>`).join(' ');
       await this.discord.sendThreadMessage(threadId, `録音日程の投票が未回答です。すべてのPollに回答してください。\n未回答: ${mentions}`, unanswered);
     } else if (announcement?.status === 'done') {
-      const today = this.today();
-      if (announcement.lastReminderDate !== today) {
-        await this.discord.sendThreadMessage(
-          threadId,
-          `<@&${this.mentionRoleId}>\n録音日程はまだ確定していません。候補日を確認して、日程の相談・確定をお願いします。`,
-          [],
-          [this.mentionRoleId],
-        );
-        await this.recordingSchedules.saveMetadata(schedule, this.withResultAnnouncement(schedule.metadata, {
-          ...announcement, lastReminderDate: today,
-        }));
-      }
+      await this.discord.sendThreadMessage(
+        threadId,
+        `<@&${this.mentionRoleId}>\n録音日程はまだ確定していません。候補日を確認して、日程の相談・確定をお願いします。`,
+        [],
+        [this.mentionRoleId],
+      );
     } else {
       const results = polls.map(({ date }, index) => this.availabilityResult(date, pollVoters[index]));
       const messages = [
@@ -101,7 +95,6 @@ export class DiscordSchedulingService implements SchedulingService {
         await this.recordingSchedules.saveMetadata(schedule, this.withResultAnnouncement(schedule.metadata, {
           status: index === messages.length - 1 ? 'done' : 'sending',
           sentMessages: index + 1,
-          ...(index === messages.length - 1 ? { lastReminderDate: this.today() } : {}),
         }));
       }
     }
@@ -156,9 +149,9 @@ export class DiscordSchedulingService implements SchedulingService {
     if (!discord || typeof discord !== 'object' || Array.isArray(discord)) return undefined;
     const announcement = (discord as Record<string, unknown>).pollResultAnnouncement;
     if (!announcement || typeof announcement !== 'object' || Array.isArray(announcement)) return undefined;
-    const { status, sentMessages, lastReminderDate } = announcement as Record<string, unknown>;
+    const { status, sentMessages } = announcement as Record<string, unknown>;
     return (status === 'sending' || status === 'done') && typeof sentMessages === 'number' && Number.isInteger(sentMessages) && sentMessages >= 0
-      ? { status, sentMessages, ...(typeof lastReminderDate === 'string' ? { lastReminderDate } : {}) } : undefined;
+      ? { status, sentMessages } : undefined;
   }
 
   private withResultAnnouncement(metadata: Record<string, unknown> | undefined, announcement: ResultAnnouncement): Record<string, unknown> {

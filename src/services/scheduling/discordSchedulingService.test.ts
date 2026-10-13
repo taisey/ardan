@@ -94,13 +94,12 @@ describe('DiscordSchedulingService', () => {
     let metadata: Record<string, unknown> = {
       discord: { availabilityThreadId: 'thread1', availabilityPolls: [{ messageId: 'm1', channelId: 'thread1', date: '2026/10/01' }] },
     };
-    let today = '2026/10/01';
     let fixed = false;
     const schedules = {
       findLatestInProgress: vi.fn().mockImplementation(async () => fixed ? null : { metadata }),
       saveMetadata: vi.fn().mockImplementation(async (_: unknown, nextMetadata: Record<string, unknown>) => { metadata = nextMetadata; }),
     };
-    const service = new DiscordSchedulingService(discord as never, schedules as never, () => today, 'guild', 'role');
+    const service = new DiscordSchedulingService(discord as never, schedules as never, () => '2026/10/01', 'guild', 'role');
 
     await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
     expect(discord.getPollVoters).toHaveBeenCalledTimes(1);
@@ -113,14 +112,9 @@ describe('DiscordSchedulingService', () => {
     expect(discord.sendThreadMessage.mock.calls[1][1]).toContain('**候補日**');
     expect(metadata).toMatchObject({ discord: {
       availabilityThreadId: 'thread1',
-      pollResultAnnouncement: { status: 'done', sentMessages: 2, lastReminderDate: '2026/10/01' },
+      pollResultAnnouncement: { status: 'done', sentMessages: 2 },
     } });
 
-    await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
-    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(2);
-    expect(schedules.saveMetadata).toHaveBeenCalledTimes(2);
-
-    today = '2026/10/02';
     await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
     expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
     expect(discord.sendThreadMessage).toHaveBeenLastCalledWith(
@@ -129,17 +123,16 @@ describe('DiscordSchedulingService', () => {
       [],
       ['role'],
     );
-    expect(metadata).toMatchObject({ discord: {
-      pollResultAnnouncement: { status: 'done', sentMessages: 2, lastReminderDate: '2026/10/02' },
-    } });
+    expect(schedules.saveMetadata).toHaveBeenCalledTimes(2);
 
     await service.remindUnansweredRecordingPollVoters();
-    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(4);
+    expect(discord.sendThreadMessage.mock.calls[3][1]).toContain('録音日程はまだ確定していません');
+    expect(schedules.saveMetadata).toHaveBeenCalledTimes(2);
 
     fixed = true;
-    today = '2026/10/03';
     await service.remindUnansweredRecordingPollVoters();
-    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(4);
   });
 
   it('resumes after a failed result message without repeating the group mention', async () => {

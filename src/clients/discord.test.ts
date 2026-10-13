@@ -75,6 +75,19 @@ describe('DiscordClient', () => {
     expect(fetchMock.mock.calls[1][0]).toBe('https://discord.com/api/v10/channels/channel/messages/parent-message/threads');
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ auto_archive_duration: 10_080 });
   });
+
+  it('allows only the specified role mention in a thread message', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'message' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await new DiscordClient('token', 'channel', 'role')
+      .sendThreadMessage('thread', '<@&role>\n投票結果', [], ['role']);
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      content: '<@&role>\n投票結果',
+      allowed_mentions: { parse: [], users: [], roles: ['role'] },
+    });
+  });
 });
 
 function jsonResponse(body: unknown, status = 200): Response {

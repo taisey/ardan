@@ -85,19 +85,86 @@ describe('DiscordSchedulingService', () => {
     );
   });
 
-  it('does not post when every group member answered every poll', async () => {
+  it('mentions the group and posts the same aggregation when every member answered', async () => {
     const discord = {
       getRoleMemberIds: vi.fn().mockResolvedValue(['u1']),
       getPollVoters: vi.fn().mockResolvedValue([{ label: '○ 参加可能', userNames: ['A'], userIds: ['u1'] }]),
       sendThreadMessage: vi.fn(),
     };
-    const schedules = { findLatestInProgress: vi.fn().mockResolvedValue({
-      metadata: { discord: { availabilityThreadId: 'thread1', availabilityPolls: [{ messageId: 'm1', channelId: 'thread1', date: '2026/10/01' }] } },
-    }) };
-    const service = new DiscordSchedulingService(discord as never, schedules as never, () => '2026/10/01', 'guild', 'role');
+    let metadata: Record<string, unknown> = {
+      discord: { availabilityThreadId: 'thread1', availabilityPolls: [{ messageId: 'm1', channelId: 'thread1', date: '2026/10/01' }] },
+    };
+    let today = '2026/10/01';
+    let fixed = false;
+    const schedules = {
+      findLatestInProgress: vi.fn().mockImplementation(async () => fixed ? null : { metadata }),
+      saveMetadata: vi.fn().mockImplementation(async (_: unknown, nextMetadata: Record<string, unknown>) => { metadata = nextMetadata; }),
+    };
+    const service = new DiscordSchedulingService(discord as never, schedules as never, () => today, 'guild', 'role');
 
     await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
-    expect(discord.sendThreadMessage).not.toHaveBeenCalled();
+    expect(discord.getPollVoters).toHaveBeenCalledTimes(1);
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(2);
+    expect(discord.sendThreadMessage).toHaveBeenNthCalledWith(
+      1, 'thread1', '<@&role>\n全員の回答が揃いました。投票結果をお知らせします。', [], ['role'],
+    );
+    expect(discord.sendThreadMessage.mock.calls[1][0]).toBe('thread1');
+    expect(discord.sendThreadMessage.mock.calls[1][1]).toContain('**2026/10/01（木）**');
+    expect(discord.sendThreadMessage.mock.calls[1][1]).toContain('**候補日**');
+    expect(metadata).toMatchObject({ discord: {
+      availabilityThreadId: 'thread1',
+      pollResultAnnouncement: { status: 'done', sentMessages: 2, lastReminderDate: '2026/10/01' },
+    } });
+
+    await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(2);
+    expect(schedules.saveMetadata).toHaveBeenCalledTimes(2);
+
+    today = '2026/10/02';
+    await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
+    expect(discord.sendThreadMessage).toHaveBeenLastCalledWith(
+      'thread1',
+      '<@&role>\n録音日程はまだ確定していません。候補日を確認して、日程の相談・確定をお願いします。',
+      [],
+      ['role'],
+    );
+    expect(metadata).toMatchObject({ discord: {
+      pollResultAnnouncement: { status: 'done', sentMessages: 2, lastReminderDate: '2026/10/02' },
+    } });
+
+    await service.remindUnansweredRecordingPollVoters();
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
+
+    fixed = true;
+    today = '2026/10/03';
+    await service.remindUnansweredRecordingPollVoters();
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
+  });
+
+  it('resumes after a failed result message without repeating the group mention', async () => {
+    let metadata: Record<string, unknown> = {
+      discord: { availabilityThreadId: 'thread1', availabilityPolls: [{ messageId: 'm1', channelId: 'thread1', date: '2026/10/01' }] },
+    };
+    const discord = {
+      getRoleMemberIds: vi.fn().mockResolvedValue(['u1']),
+      getPollVoters: vi.fn().mockResolvedValue([{ label: '○ 参加可能', userNames: ['A'], userIds: ['u1'] }]),
+      sendThreadMessage: vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('send failed')).mockResolvedValue(undefined),
+    };
+    const schedules = {
+      findLatestInProgress: vi.fn().mockImplementation(async () => ({ metadata })),
+      saveMetadata: vi.fn().mockImplementation(async (_: unknown, nextMetadata: Record<string, unknown>) => { metadata = nextMetadata; }),
+    };
+    const service = new DiscordSchedulingService(discord as never, schedules as never, () => '2026/10/01', 'guild', 'role');
+
+    await expect(service.remindUnansweredRecordingPollVoters()).rejects.toThrow('send failed');
+    expect(metadata).toMatchObject({ discord: { pollResultAnnouncement: { status: 'sending', sentMessages: 1 } } });
+
+    await expect(service.remindUnansweredRecordingPollVoters()).resolves.toEqual([]);
+    expect(discord.sendThreadMessage).toHaveBeenCalledTimes(3);
+    expect(discord.sendThreadMessage.mock.calls[2][1]).toContain('**候補日**');
+    expect(discord.sendThreadMessage.mock.calls[2][3]).toEqual([]);
+    expect(metadata).toMatchObject({ discord: { pollResultAnnouncement: { status: 'done', sentMessages: 2 } } });
   });
 
   it('completes the latest in-progress schedule with the selected date', async () => {

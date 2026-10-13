@@ -1,5 +1,6 @@
 import type { DiscordClient, PollVoters } from '../../clients/discord.js';
 import type { RecordingScheduleRepository } from '../../repositories/recordingSchedule/recordingScheduleRepository.js';
+import { formatResults, splitMessages } from './formatPollResults.js';
 import type {
   CreatedRecordingDatePoll,
   AvailabilityResult,
@@ -9,6 +10,7 @@ import type {
 const POLL_TITLE = '次回録音の日程調整';
 
 type AvailabilityPoll = { date: string; messageId: string; channelId?: string };
+type ResultAnnouncement = { status: 'sending' | 'done'; sentMessages: number; lastReminderDate?: string };
 
 export function todayInTimeZone(timeZone: string): string {
   const values = new Intl.DateTimeFormat('en-US', {
@@ -71,9 +73,37 @@ export class DiscordSchedulingService implements SchedulingService {
       }
     }
     const unanswered = groupMemberIds.filter((memberId) => !answeredEveryPoll.has(memberId));
+    const announcement = this.resultAnnouncementFromMetadata(schedule.metadata);
     if (unanswered.length) {
       const mentions = unanswered.map((memberId) => `<@${memberId}>`).join(' ');
       await this.discord.sendThreadMessage(threadId, `録音日程の投票が未回答です。すべてのPollに回答してください。\n未回答: ${mentions}`, unanswered);
+    } else if (announcement?.status === 'done') {
+      const today = this.today();
+      if (announcement.lastReminderDate !== today) {
+        await this.discord.sendThreadMessage(
+          threadId,
+          `<@&${this.mentionRoleId}>\n録音日程はまだ確定していません。候補日を確認して、日程の相談・確定をお願いします。`,
+          [],
+          [this.mentionRoleId],
+        );
+        await this.recordingSchedules.saveMetadata(schedule, this.withResultAnnouncement(schedule.metadata, {
+          ...announcement, lastReminderDate: today,
+        }));
+      }
+    } else {
+      const results = polls.map(({ date }, index) => this.availabilityResult(date, pollVoters[index]));
+      const messages = [
+        `<@&${this.mentionRoleId}>\n全員の回答が揃いました。投票結果をお知らせします。`,
+        ...splitMessages(formatResults(results)),
+      ];
+      for (let index = announcement?.sentMessages ?? 0; index < messages.length; index += 1) {
+        await this.discord.sendThreadMessage(threadId, messages[index], [], index === 0 ? [this.mentionRoleId] : []);
+        await this.recordingSchedules.saveMetadata(schedule, this.withResultAnnouncement(schedule.metadata, {
+          status: index === messages.length - 1 ? 'done' : 'sending',
+          sentMessages: index + 1,
+          ...(index === messages.length - 1 ? { lastReminderDate: this.today() } : {}),
+        }));
+      }
     }
     return unanswered;
   }
@@ -86,12 +116,7 @@ export class DiscordSchedulingService implements SchedulingService {
     const results: AvailabilityResult[] = [];
     for (const { date, messageId, channelId } of polls) {
       const voters = await this.discord.getPollVoters(messageId, channelId);
-      results.push({
-        date,
-        available: this.votersFor(voters, '○'),
-        tentative: this.votersFor(voters, '△'),
-        unavailable: this.votersFor(voters, '×'),
-      });
+      results.push(this.availabilityResult(date, voters));
     }
     return results;
   }
@@ -126,8 +151,33 @@ export class DiscordSchedulingService implements SchedulingService {
     return typeof threadId === 'string' ? threadId : undefined;
   }
 
+  private resultAnnouncementFromMetadata(metadata: Record<string, unknown> | undefined): ResultAnnouncement | undefined {
+    const discord = metadata?.discord;
+    if (!discord || typeof discord !== 'object' || Array.isArray(discord)) return undefined;
+    const announcement = (discord as Record<string, unknown>).pollResultAnnouncement;
+    if (!announcement || typeof announcement !== 'object' || Array.isArray(announcement)) return undefined;
+    const { status, sentMessages, lastReminderDate } = announcement as Record<string, unknown>;
+    return (status === 'sending' || status === 'done') && typeof sentMessages === 'number' && Number.isInteger(sentMessages) && sentMessages >= 0
+      ? { status, sentMessages, ...(typeof lastReminderDate === 'string' ? { lastReminderDate } : {}) } : undefined;
+  }
+
+  private withResultAnnouncement(metadata: Record<string, unknown> | undefined, announcement: ResultAnnouncement): Record<string, unknown> {
+    const discord = metadata?.discord && typeof metadata.discord === 'object' && !Array.isArray(metadata.discord)
+      ? metadata.discord as Record<string, unknown> : {};
+    return { ...metadata, discord: { ...discord, pollResultAnnouncement: announcement } };
+  }
+
   private votersFor(voters: PollVoters[], marker: string): string[] {
     return voters.find(({ label }) => label.startsWith(marker))?.userNames ?? [];
+  }
+
+  private availabilityResult(date: string, voters: PollVoters[]): AvailabilityResult {
+    return {
+      date,
+      available: this.votersFor(voters, '○'),
+      tentative: this.votersFor(voters, '△'),
+      unavailable: this.votersFor(voters, '×'),
+    };
   }
 
 }

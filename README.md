@@ -58,7 +58,7 @@ npm run discord:sync-commands
 | `/create_recording_date_poll` | 最新の作成対象日程についてPollを作成 |
 | `/aggregate_poll_result` | 日付ごとの○・△・×と投票者を集計し、候補日を最後に表示 |
 | `/fix_recording_date date:YYYY/MM/DD` | 進行中の日程を指定日で確定 |
-| `/remind_unanswered` | 投票に未回答のメンバーを日程調整スレッドでリマインド |
+| `/remind_unanswered` | 未回答者、または全員回答後も未確定の日程を日程調整スレッドでリマインド |
 | `/poll_rss` | Podcast RSSを手動取得 |
 
 Guild Commandなので、同期結果は指定したDiscordサーバーだけに即時反映されます。
@@ -170,7 +170,7 @@ npm run batch:remind-editing-schedule
 npm run batch:remind-unanswered-recording-poll-voters
 ```
 
-`batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。未回答者がいない場合は投稿しません。DiscordユーザーIDで照合するため、表示名の変更には影響されません。
+`batch:remind-unanswered-recording-poll-voters` は、最新の `in_progress` 行に記録されたすべてのPollを確認し、`DISCORD_MENTION_ROLE_ID` のメンバーのうち1つ以上のPollに未回答の人を、日程調整スレッド内でメンションします。全員が回答済みなら、メンショングループを付けて `/aggregate_poll_result` と同じ集計結果をスレッドに一度だけ投稿します。翌日以降も日程が確定していなければ、集計結果を再投稿せず、メンショングループへ1日1回リマインドします。投稿の進捗、完了状態、最終リマインド日は、その日程行の `metadata.discord.pollResultAnnouncement` に保存します。投票中の日程がない場合は投稿しません。DiscordユーザーIDで回答を照合するため、表示名の変更には影響されません。
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 

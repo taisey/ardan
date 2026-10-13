@@ -14,11 +14,12 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
     const schedules = await this.readSchedules();
     const title = await this.getSheetTitle();
 
-    for (const expired of schedules.filter(({ schedule }) => schedule.status === 'in_progress' && schedule.endDate < today)) {
+    for (const expired of schedules.filter(({ schedule }) => schedule.status === 'collecting' && schedule.endDate < today)) {
       await this.sheets.updateRow(`${title}!A${expired.rowNumber}:E${expired.rowNumber}`, this.toRow({ ...expired.schedule, status: 'canceled' }));
     }
 
-    if (schedules.some(({ schedule }) => schedule.status === 'in_progress' && schedule.endDate >= today)) {
+    if (schedules.some(({ schedule }) =>
+      schedule.status === 'finalizing' || (schedule.status === 'collecting' && schedule.endDate >= today))) {
       return null;
     }
 
@@ -36,16 +37,25 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
     }
     const candidate = candidates[0];
     if (!candidate) return null;
-    const inProgress: RecordingSchedule = { ...candidate.schedule, status: 'in_progress' };
-    await this.sheets.updateRow(`${title}!A${candidate.rowNumber}:E${candidate.rowNumber}`, this.toRow(inProgress));
-    return inProgress;
+    const collecting: RecordingSchedule = { ...candidate.schedule, status: 'collecting' };
+    await this.sheets.updateRow(`${title}!A${candidate.rowNumber}:E${candidate.rowNumber}`, this.toRow(collecting));
+    return collecting;
   }
 
-  async findLatestInProgress(): Promise<RecordingSchedule | null> {
+  async findLatestActive(): Promise<RecordingSchedule | null> {
     const schedules = await this.readSchedules();
     return schedules
-      .filter(({ schedule }) => schedule.status === 'in_progress')
+      .filter(({ schedule }) => schedule.status === 'collecting' || schedule.status === 'finalizing')
       .sort((left, right) => right.schedule.startDate.localeCompare(left.schedule.startDate))[0]?.schedule ?? null;
+  }
+
+  async markFinalizing(schedule: RecordingSchedule): Promise<void> {
+    const match = (await this.readSchedules()).find(({ schedule: stored }) =>
+      stored.startDate === schedule.startDate && stored.endDate === schedule.endDate,
+    );
+    if (!match || match.schedule.status !== 'collecting') throw new Error('The selected schedule is not collecting availability');
+    const title = await this.getSheetTitle();
+    await this.sheets.updateRow(`${title}!D${match.rowNumber}:D${match.rowNumber}`, ['finalizing']);
   }
 
   async saveMetadata(schedule: RecordingSchedule, metadata: Record<string, unknown>): Promise<void> {
@@ -60,9 +70,9 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
   async complete(fixedDate: string): Promise<void> {
     const schedules = await this.readSchedules();
     const latest = schedules
-      .filter(({ schedule }) => schedule.status === 'in_progress')
+      .filter(({ schedule }) => schedule.status === 'collecting' || schedule.status === 'finalizing')
       .sort((left, right) => right.schedule.startDate.localeCompare(left.schedule.startDate))[0];
-    if (!latest) throw new Error('No in_progress recording schedule exists');
+    if (!latest) throw new Error('No active recording schedule exists');
     if (fixedDate < latest.schedule.startDate || fixedDate > latest.schedule.endDate) {
       throw new Error(`fixedDate must be between ${latest.schedule.startDate} and ${latest.schedule.endDate}`);
     }
@@ -79,7 +89,7 @@ export class GoogleSheetsRecordingScheduleRepository implements RecordingSchedul
       if (!row.some(Boolean)) return [];
       const schedule: RecordingSchedule = {
         startDate: this.toSlashDate(row[0] ?? ''), endDate: this.toSlashDate(row[1] ?? ''), fixedDate: row[2] ? this.toSlashDate(row[2]) : undefined,
-        status: row[3] ? row[3] as RecordingSchedule['status'] : undefined,
+        status: row[3] === 'in_progress' ? 'collecting' : row[3] ? row[3] as RecordingSchedule['status'] : undefined,
         metadata: this.parseMetadata(row[4]),
       };
       assertValidRecordingSchedule(schedule);

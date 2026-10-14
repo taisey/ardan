@@ -15,6 +15,7 @@ async function main(): Promise<void> {
     new DiscordClient(config.discord.botToken, config.discord.noticeChannelId, config.discord.mentionRoleId),
     config.google.editingSourceFolderId,
     () => todayInTimeZone(config.timezone),
+    config.reminderDaysBeforeDue,
   );
   const created = await service.syncFromDrive();
   console.log(JSON.stringify({ created }));

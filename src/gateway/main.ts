@@ -34,6 +34,7 @@ const editingSchedule = editingConfig ? new EditingScheduleService(
   new DiscordClient(editingConfig.discord.botToken, editingConfig.discord.noticeChannelId, editingConfig.discord.mentionRoleId),
   editingConfig.google.editingSourceFolderId,
   () => todayInTimeZone(editingConfig.timezone),
+  editingConfig.reminderDaysBeforeDue,
 ) : undefined;
 const interactions = new DiscordGatewayInteractionHandler(config.discord.applicationId, scheduling, editingSchedule, rss);
 const gateway = new DiscordGateway(config.discord.botToken, async (dispatch) => {

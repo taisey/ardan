@@ -10,6 +10,7 @@ export class EditingScheduleService {
     private readonly discord: DiscordClient,
     private readonly sourceFolderId: string,
     private readonly today: () => string,
+    private readonly reminderDaysBeforeDue = 7,
   ) {}
 
   async syncFromDrive(): Promise<EditingSchedule[]> {
@@ -25,32 +26,34 @@ export class EditingScheduleService {
       .sort((left, right) => episodeOrder(left) - episodeOrder(right));
     if (!additions.length) return [];
     let assigneeIndex = this.nextAssigneeIndex(latestDone?.assign, assignees);
-    let dueWeek = this.nextDueWeek(latestDone?.startDueWeek);
+    let dueDate = this.nextDueDate(latestDone?.dueDate);
     const created: EditingSchedule[] = [];
     for (const number of additions) {
-      const schedule = { number, startDueWeek: dueWeek, assign: assignees[assigneeIndex].name, status: '' as const };
+      const schedule = { number, dueDate, assign: assignees[assigneeIndex].name, status: '' as const };
       await this.schedules.append(schedule);
       created.push(schedule);
       assigneeIndex = (assigneeIndex + 1) % assignees.length;
-      dueWeek = addWeeks(dueWeek, 1);
+      dueDate = addDays(dueDate, 7);
     }
     return created;
   }
 
   async remindDueEditors(): Promise<EditingSchedule[]> {
     const [schedules, users] = await Promise.all([this.schedules.listSchedules(), this.schedules.listUsers()]);
-    const currentWeek = weekStart(this.today());
-    const due = schedules.filter((schedule) => schedule.status !== 'done' && schedule.startDueWeek && weekStart(schedule.startDueWeek) === currentWeek);
+    const today = normalizeDate(this.today());
+    const due = schedules.filter((schedule) => schedule.status !== 'done' && schedule.dueDate
+      && addDays(schedule.dueDate, -this.reminderDaysBeforeDue) <= today);
     if (!due.length) return [];
     const usersByName = new Map(users.map((user) => [user.name, user.discordId]));
     const reminded: EditingSchedule[] = [];
     for (const schedule of due) {
       const active = schedule.status === '' ? await this.schedules.markInProgress(schedule.number) : schedule;
       const discordId = usersByName.get(active.assign);
-      const content = `${discordId ? `<@${discordId}>` : active.assign || '担当未設定'} ${active.number} の編集をお願いします（開始予定週: ${active.startDueWeek}）。`;
+      const overdue = normalizeDate(active.dueDate) < today ? '・期限超過' : '';
+      const content = `${discordId ? `<@${discordId}>` : active.assign || '担当未設定'} ${active.number} の編集をお願いします（締切: ${active.dueDate}${overdue}）。`;
       let threadId = this.reminderThreadId(active.metadata);
       if (!threadId) {
-        const thread = await this.discord.createEditingReminderThread(active.number, active.startDueWeek);
+        const thread = await this.discord.createEditingReminderThread(active.number, active.dueDate);
         threadId = thread.threadId;
         await this.schedules.saveMetadata(active.number, this.withReminderThread(active.metadata, threadId));
       }
@@ -89,24 +92,36 @@ export class EditingScheduleService {
     return { ...metadata, discord: { ...discord, reminderThreadId } };
   }
 
-  private nextDueWeek(latestDoneWeek: string | undefined): string {
-    const next = latestDoneWeek ? addWeeks(weekStart(latestDoneWeek), 1) : addWeeks(weekStart(this.today()), 1);
-    return next <= weekStart(this.today()) ? addWeeks(weekStart(this.today()), 1) : next;
+  private nextDueDate(latestDoneDate: string | undefined): string {
+    const earliest = addDays(weekStart(this.today()), 14);
+    const next = latestDoneDate ? addDays(latestDoneDate, 7) : earliest;
+    return next < earliest ? earliest : next;
   }
 }
 
 export function weekStart(value: string): string {
-  const normalized = value.replaceAll('-', '/');
-  if (!/^\d{4}\/\d{2}\/\d{2}$/.test(normalized)) throw new Error(`Invalid start_due_week: ${value}`);
-  const date = new Date(`${normalized.replaceAll('/', '-')}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) throw new Error(`Invalid start_due_week: ${value}`);
+  const date = parseDate(value);
   const mondayOffset = (date.getUTCDay() + 6) % 7;
   date.setUTCDate(date.getUTCDate() - mondayOffset);
   return date.toISOString().slice(0, 10).replaceAll('-', '/');
 }
 
-function addWeeks(value: string, weeks: number): string {
-  const date = new Date(`${value.replaceAll('/', '-')}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + weeks * 7);
+function normalizeDate(value: string): string {
+  return parseDate(value).toISOString().slice(0, 10).replaceAll('-', '/');
+}
+
+function parseDate(value: string): Date {
+  const normalized = value.replaceAll('-', '/');
+  if (!/^\d{4}\/\d{2}\/\d{2}$/.test(normalized)) throw new Error(`Invalid date: ${value}`);
+  const date = new Date(`${normalized.replaceAll('/', '-')}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10).replaceAll('-', '/') !== normalized) {
+    throw new Error(`Invalid date: ${value}`);
+  }
+  return date;
+}
+
+function addDays(value: string, days: number): string {
+  const date = parseDate(value);
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10).replaceAll('-', '/');
 }

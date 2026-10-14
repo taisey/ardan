@@ -2,41 +2,41 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditingScheduleService, weekStart } from './editingScheduleService.js';
 
 describe('EditingScheduleService', () => {
-  it('adds Drive episodes after the latest done assignment and schedules stale weeks for next week', async () => {
+  it('adds Drive episodes after the latest done assignment and schedules stale deadlines', async () => {
     const drive = { listChildNames: vi.fn().mockResolvedValue(['#12', '#11', 'draft']) };
     const schedules = {
-      listSchedules: vi.fn().mockResolvedValue([{ number: '#10', startDueWeek: '2026/09/14', assign: 'B', status: 'done' }]),
+      listSchedules: vi.fn().mockResolvedValue([{ number: '#10', dueDate: '2026/09/21', assign: 'B', status: 'done' }]),
       listAssignees: vi.fn().mockResolvedValue([{ order: 1, name: 'A' }, { order: 2, name: 'B' }, { order: 3, name: 'C' }]),
       append: vi.fn().mockResolvedValue(undefined),
     };
     const service = new EditingScheduleService(drive as never, schedules as never, {} as never, 'folder', () => '2026/09/24');
 
     await expect(service.syncFromDrive()).resolves.toEqual([
-      { number: '#11', startDueWeek: '2026/09/28', assign: 'C', status: '' },
-      { number: '#12', startDueWeek: '2026/10/05', assign: 'A', status: '' },
+      { number: '#11', dueDate: '2026/10/05', assign: 'C', status: '' },
+      { number: '#12', dueDate: '2026/10/12', assign: 'A', status: '' },
     ]);
   });
 
   it('uses an existing bare episode number as the latest done row', async () => {
     const drive = { listChildNames: vi.fn().mockResolvedValue(['#001', '#046', '#068']) };
     const schedules = {
-      listSchedules: vi.fn().mockResolvedValue([{ number: '67', startDueWeek: '2026/09/28', assign: 'Yuma', status: 'done' }]),
+      listSchedules: vi.fn().mockResolvedValue([{ number: '67', dueDate: '2026/09/28', assign: 'Yuma', status: 'done' }]),
       listAssignees: vi.fn().mockResolvedValue([{ order: 1, name: 'Yuma' }, { order: 2, name: 'Aoi' }]),
       append: vi.fn().mockResolvedValue(undefined),
     };
     const service = new EditingScheduleService(drive as never, schedules as never, {} as never, 'folder', () => '2026/09/24');
 
     await expect(service.syncFromDrive()).resolves.toEqual([
-      { number: '#068', startDueWeek: '2026/10/05', assign: 'Aoi', status: '' },
+      { number: '#068', dueDate: '2026/10/05', assign: 'Aoi', status: '' },
     ]);
   });
 
-  it('mentions the assigned Discord user for unfinished items due this week', async () => {
+  it('starts reminders on the configured day before the deadline', async () => {
     const schedules = {
       listSchedules: vi.fn().mockResolvedValue([
-        { number: '#11', startDueWeek: '2026/09/21', assign: 'A', status: 'in_progress' },
-        { number: '#12', startDueWeek: '2026/09/28', assign: 'B', status: 'in_progress' },
-        { number: '#10', startDueWeek: '2026/09/14', assign: 'C', status: 'in_progress' },
+        { number: '#11', dueDate: '2026/09/27', assign: 'A', status: 'in_progress' },
+        { number: '#12', dueDate: '2026/09/28', assign: 'B', status: 'in_progress' },
+        { number: '#10', dueDate: '2026/09/20', assign: 'C', status: 'done' },
       ]),
       listUsers: vi.fn().mockResolvedValue([{ name: 'A', discordId: '123' }]),
       saveMetadata: vi.fn().mockResolvedValue(undefined),
@@ -45,24 +45,24 @@ describe('EditingScheduleService', () => {
       createEditingReminderThread: vi.fn().mockResolvedValue({ threadId: 'thread-11' }),
       sendThreadMessage: vi.fn().mockResolvedValue(undefined),
     };
-    const service = new EditingScheduleService({} as never, schedules as never, discord as never, 'folder', () => '2026/09/24');
+    const service = new EditingScheduleService({} as never, schedules as never, discord as never, 'folder', () => '2026/09/24', 3);
 
     await expect(service.remindDueEditors()).resolves.toHaveLength(1);
-    expect(discord.createEditingReminderThread).toHaveBeenCalledWith('#11', '2026/09/21');
+    expect(discord.createEditingReminderThread).toHaveBeenCalledWith('#11', '2026/09/27');
     expect(schedules.saveMetadata).toHaveBeenCalledWith('#11', { discord: { reminderThreadId: 'thread-11' } });
     expect(discord.sendThreadMessage).toHaveBeenCalledWith(
-      'thread-11', '<@123> #11 の編集をお願いします（開始予定週: 2026/09/21）。', ['123'],
+      'thread-11', '<@123> #11 の編集をお願いします（締切: 2026/09/27）。', ['123'],
     );
   });
 
   it('reminds a scheduled editor whose status is blank', async () => {
     const schedules = {
       listSchedules: vi.fn().mockResolvedValue([
-        { number: '#069', startDueWeek: '2026/10/12', assign: 'taisei', status: '' },
-        { number: '#067', startDueWeek: '2026/10/12', assign: 'yuma', status: 'done' },
+        { number: '#069', dueDate: '2026/10/12', assign: 'taisei', status: '' },
+        { number: '#067', dueDate: '2026/10/12', assign: 'yuma', status: 'done' },
       ]),
       listUsers: vi.fn().mockResolvedValue([{ name: 'taisei', discordId: '123' }]),
-      markInProgress: vi.fn().mockResolvedValue({ number: '#069', startDueWeek: '2026/10/12', assign: 'taisei', status: 'in_progress' }),
+      markInProgress: vi.fn().mockResolvedValue({ number: '#069', dueDate: '2026/10/12', assign: 'taisei', status: 'in_progress' }),
       saveMetadata: vi.fn().mockResolvedValue(undefined),
     };
     const discord = {
@@ -72,21 +72,21 @@ describe('EditingScheduleService', () => {
     const service = new EditingScheduleService({} as never, schedules as never, discord as never, 'folder', () => '2026/10/12');
 
     await expect(service.remindDueEditors()).resolves.toEqual([
-      { number: '#069', startDueWeek: '2026/10/12', assign: 'taisei', status: 'in_progress' },
+      { number: '#069', dueDate: '2026/10/12', assign: 'taisei', status: 'in_progress' },
     ]);
     expect(schedules.markInProgress).toHaveBeenCalledWith('#069');
     expect(schedules.markInProgress.mock.invocationCallOrder[0]).toBeLessThan(discord.createEditingReminderThread.mock.invocationCallOrder[0]);
     expect(discord.createEditingReminderThread).toHaveBeenCalledWith('#069', '2026/10/12');
     expect(schedules.saveMetadata).toHaveBeenCalledWith('#069', { discord: { reminderThreadId: 'thread-69' } });
     expect(discord.sendThreadMessage).toHaveBeenCalledWith(
-      'thread-69', '<@123> #069 の編集をお願いします（開始予定週: 2026/10/12）。', ['123'],
+      'thread-69', '<@123> #069 の編集をお願いします（締切: 2026/10/12）。', ['123'],
     );
   });
 
   it('reuses a reminder thread saved in metadata', async () => {
     const schedules = {
       listSchedules: vi.fn().mockResolvedValue([{
-        number: '#11', startDueWeek: '2026/09/21', assign: 'A', status: 'in_progress',
+        number: '#11', dueDate: '2026/09/21', assign: 'A', status: 'in_progress',
         metadata: { discord: { reminderThreadId: 'existing-thread' } },
       }]),
       listUsers: vi.fn().mockResolvedValue([{ name: 'A', discordId: '123' }]),
@@ -97,7 +97,7 @@ describe('EditingScheduleService', () => {
     await service.remindDueEditors();
     expect(discord.createEditingReminderThread).not.toHaveBeenCalled();
     expect(discord.sendThreadMessage).toHaveBeenCalledWith(
-      'existing-thread', '<@123> #11 の編集をお願いします（開始予定週: 2026/09/21）。', ['123'],
+      'existing-thread', '<@123> #11 の編集をお願いします（締切: 2026/09/21・期限超過）。', ['123'],
     );
   });
 

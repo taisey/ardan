@@ -138,7 +138,7 @@ Gatewayプロセスは `TZ` を基準に、毎時 `xx:00:00` に同じ作成処�
 
 ```text
 editing_schedule
-# | start_due_week | assign | status | metadata
+# | due_date | assign | status | metadata
 
 editing_schedule_assign_order
 order | name
@@ -149,6 +149,8 @@ name | discord_id
 
 `status` は空欄が未着手、`in_progress` が編集中、`done` が公開済みです。Driveから同期した行は空欄で追加します。
 
+`due_date` は編集の締切日です。`YYYY/MM/DD` 形式で入力します。B列のヘッダーは `due_date` にしてください。
+
 `metadata` はJSON形式の拡張情報です。最初のリマインド時に `{"discord":{"reminderThreadId":"..."}}` が自動保存され、同じ回への以後のリマインドはそのDiscordスレッドに投稿されます。
 
 `GOOGLE_EDITING_SOURCE_FOLDER_ID` には、動画ごとの `#123` 形式の名前を持つDriveフォルダまたはファイルが置かれた親フォルダIDを設定します。サービスアカウントには、そのフォルダの閲覧権限とSpreadsheetの編集権限が必要です。
@@ -158,6 +160,7 @@ GOOGLE_EDITING_SCHEDULE_SHEET_GID=
 GOOGLE_EDITING_SCHEDULE_ASSIGN_ORDER_SHEET_GID=
 GOOGLE_USERS_SHEET_GID=
 GOOGLE_EDITING_SOURCE_FOLDER_ID=
+EDITING_REMINDER_DAYS_BEFORE_DUE=7
 ```
 
 ```sh
@@ -165,7 +168,7 @@ npm run batch:sync-editing-schedule
 npm run batch:remind-editing-schedule
 ```
 
-`batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。`start_due_week` は最新の `done` 行の翌週（月曜）にし、その週に入っている・過ぎている場合は次週にします。複数件を一度に追加した場合は担当者と週を1件ずつ順送りにします。
+`batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。新しい `due_date` は最新の `done` 行の締切から7日後、または翌々週の月曜のうち、遅い日付にします。複数件を一度に追加した場合は担当者と締切を1件ずつ順送りします。
 
 手動実行はDiscordで `/poll_rss`、またはプロジェクト内で次のBatchを使います。
 
@@ -177,7 +180,7 @@ npm run batch:remind-unanswered-recording-poll-voters
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）が、`TZ` のタイムゾーンに基づいて毎日00:00:00にこの処理を実行します。Batchコマンドは手動実行や、常駐プロセスを使えない環境でのワンショット実行に使用します。
 
-`batch:remind-editing-schedule` は、開始予定週が当週で、`status` が空欄または `in_progress` の行を `user` タブのDiscord IDへメンションして通知チャンネルにリマインドします。空欄の行は先に `in_progress` へ更新します。過去週の未完了行は自動通知しません。
+`EDITING_REMINDER_DAYS_BEFORE_DUE` は締切の何日前から通知するかを指定する0以上の整数です。省略時は7日です。`batch:remind-editing-schedule` は、通知開始日以降で `status` が空欄または `in_progress` の行を `user` タブのDiscord IDへメンションし、毎日リマインドします。締切後も `done` になるまで通知し、文面に「期限超過」と表示します。空欄の行は最初の通知前に `in_progress` へ更新します。
 
 常駐するGatewayプロセス（`npm run dev` / `dist/gateway/main.js`）は、`TZ` のタイムゾーンで毎日00:00:00にDriveから編集スケジュールを同期し、その後に編集担当者へリマインドします。同期に失敗しても、既存のスケジュールに対するリマインドは実行します。起動直後には同期しません。Batchコマンドと `/sync_editing_schedule` は手動実行に使用します。
 

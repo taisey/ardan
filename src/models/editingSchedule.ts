@@ -1,6 +1,6 @@
 export type EditingSchedule = {
   number: string;
-  startDueWeek: string;
+  dueDate: string;
   assign: string;
   status: '' | 'in_progress' | 'done';
   metadata?: Record<string, unknown>;

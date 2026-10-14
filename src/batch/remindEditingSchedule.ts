@@ -15,6 +15,7 @@ async function main(): Promise<void> {
     new DiscordClient(config.discord.botToken, config.discord.noticeChannelId, config.discord.mentionRoleId),
     config.google.editingSourceFolderId,
     () => todayInTimeZone(config.timezone),
+    config.reminderDaysBeforeDue,
   );
   const reminded = await service.remindDueEditors();
   console.log(JSON.stringify({ reminded: reminded.map((schedule) => schedule.number) }));

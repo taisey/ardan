@@ -10,14 +10,19 @@ export class GoogleSheetsEditingScheduleRepository {
   ) {}
 
   async listSchedules(): Promise<EditingSchedule[]> {
-    const rows = await this.sheets.readRows(`${await this.sheetTitle(this.editingScheduleSheetGid)}!A2:E`);
+    const title = await this.sheetTitle(this.editingScheduleSheetGid);
+    const header = await this.sheets.readRows(`${title}!A1:E1`);
+    if (header[0]?.[1]?.trim() !== 'due_date') {
+      throw new Error('editing_schedule column B must be due_date');
+    }
+    const rows = await this.sheets.readRows(`${title}!A2:E`);
     return rows.flatMap((row) => {
       const number = row[0]?.trim() ?? '';
       if (!number) return [];
       const status = row[3]?.trim() ?? '';
       if (status !== '' && status !== 'in_progress' && status !== 'done') throw new Error(`${number} status must be blank, in_progress or done`);
       const metadata = this.parseMetadata(row[4]);
-      return [{ number, startDueWeek: row[1]?.trim() ?? '', assign: row[2]?.trim() ?? '', status, ...(metadata ? { metadata } : {}) }];
+      return [{ number, dueDate: row[1]?.trim() ?? '', assign: row[2]?.trim() ?? '', status, ...(metadata ? { metadata } : {}) }];
     });
   }
 
@@ -86,7 +91,7 @@ export class GoogleSheetsEditingScheduleRepository {
   }
 
   private toRow(schedule: EditingSchedule): string[] {
-    return [schedule.number, schedule.startDueWeek, schedule.assign, schedule.status, schedule.metadata ? JSON.stringify(schedule.metadata) : ''];
+    return [schedule.number, schedule.dueDate, schedule.assign, schedule.status, schedule.metadata ? JSON.stringify(schedule.metadata) : ''];
   }
 
   private parseMetadata(value: string | undefined): Record<string, unknown> | undefined {

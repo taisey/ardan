@@ -43,11 +43,11 @@ export class DiscordClient {
     if (!response.ok) throw await discordHttpError('Discord notice', response);
   }
 
-  async createEditingReminderThread(episode: string, startDueWeek: string): Promise<{ threadId: string }> {
+  async createEditingReminderThread(episode: string, dueDate: string): Promise<{ threadId: string }> {
     const messageResponse = await fetch(`https://discord.com/api/v10/channels/${this.noticeChannelId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bot ${this.botToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: `編集リマインド: ${episode}\n開始予定週: ${startDueWeek}`, allowed_mentions: { parse: [] } }),
+      body: JSON.stringify({ content: `編集リマインド: ${episode}\n締切: ${dueDate}`, allowed_mentions: { parse: [] } }),
     });
     if (!messageResponse.ok) throw await discordHttpError('Discord editing reminder announcement', messageResponse);
     const message = (await messageResponse.json()) as { id?: unknown };

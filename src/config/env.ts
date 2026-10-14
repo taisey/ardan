@@ -15,6 +15,7 @@ export type GoogleConfig = {
 };
 
 export type EditingScheduleConfig = Pick<AppConfig, 'discord' | 'timezone'> & {
+  reminderDaysBeforeDue: number;
   google: GoogleConfig & {
     editingScheduleSheetGid: number;
     editingScheduleAssignOrderSheetGid: number;
@@ -96,8 +97,14 @@ export function loadDiscordCommandConfig(env: Environment = process.env): Discor
 
 export function loadEditingScheduleConfig(env: Environment = process.env): EditingScheduleConfig {
   const scheduling = loadSchedulingConfig(env);
+  const reminderDays = env.EDITING_REMINDER_DAYS_BEFORE_DUE?.trim() || '7';
+  const reminderDaysBeforeDue = Number(reminderDays);
+  if (!/^(0|[1-9]\d*)$/.test(reminderDays) || !Number.isSafeInteger(reminderDaysBeforeDue)) {
+    throw new Error('EDITING_REMINDER_DAYS_BEFORE_DUE must be a non-negative integer');
+  }
   return {
     ...scheduling,
+    reminderDaysBeforeDue,
     google: {
       ...scheduling.google,
       editingScheduleSheetGid: parseSheetGid(required(env, 'GOOGLE_EDITING_SCHEDULE_SHEET_GID'), 'GOOGLE_EDITING_SCHEDULE_SHEET_GID'),

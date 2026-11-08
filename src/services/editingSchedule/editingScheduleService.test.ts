@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditingScheduleService, weekStart } from './editingScheduleService.js';
 
 describe('EditingScheduleService', () => {
-  it('adds Drive episodes after the latest done assignment and schedules stale deadlines', async () => {
+  it('adds Drive episodes in assignment order and schedules stale deadlines', async () => {
     const drive = { listChildNames: vi.fn().mockResolvedValue(['#12', '#11', 'draft']) };
     const schedules = {
       listSchedules: vi.fn().mockResolvedValue([{ number: '#10', dueDate: '2026/09/21', assign: 'B', status: 'done' }]),
@@ -14,6 +14,26 @@ describe('EditingScheduleService', () => {
     await expect(service.syncFromDrive()).resolves.toEqual([
       { number: '#11', dueDate: '2026/10/05', assign: 'C', status: '' },
       { number: '#12', dueDate: '2026/10/12', assign: 'A', status: '' },
+    ]);
+  });
+
+  it('continues after the preceding unfinished episode instead of repeating the latest done editor', async () => {
+    const drive = { listChildNames: vi.fn().mockResolvedValue(['#70', '#71', '#72', '#73']) };
+    const schedules = {
+      listSchedules: vi.fn().mockResolvedValue([
+        { number: '#70', dueDate: '2026/11/02', assign: 'yuma', status: 'done' },
+        { number: '#71', dueDate: '2026/11/09', assign: 'raku', status: 'in_progress' },
+      ]),
+      listAssignees: vi.fn().mockResolvedValue([
+        { order: 1, name: 'raku' }, { order: 2, name: 'taisei' }, { order: 3, name: 'yuma' },
+      ]),
+      append: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = new EditingScheduleService(drive as never, schedules as never, {} as never, 'folder', () => '2026/11/02');
+
+    await expect(service.syncFromDrive()).resolves.toEqual([
+      { number: '#72', dueDate: '2026/11/16', assign: 'taisei', status: '' },
+      { number: '#73', dueDate: '2026/11/23', assign: 'yuma', status: '' },
     ]);
   });
 

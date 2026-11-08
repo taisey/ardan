@@ -19,21 +19,23 @@ export class EditingScheduleService {
     ]);
     const latestDone = existing.filter((schedule) => schedule.status === 'done' && isEpisodeNumber(schedule.number))
       .sort((left, right) => episodeOrder(right.number) - episodeOrder(left.number))[0];
+    const scheduled = existing.filter((schedule) => isEpisodeNumber(schedule.number));
     const existingNumbers = new Set(existing.filter((schedule) => isEpisodeNumber(schedule.number)).map((schedule) => episodeOrder(schedule.number)));
     const additions = [...new Set(names.filter(isEpisodeNumber))]
       .filter((number) => !existingNumbers.has(episodeOrder(number)))
       .filter((number) => !latestDone || episodeOrder(number) > episodeOrder(latestDone.number))
       .sort((left, right) => episodeOrder(left) - episodeOrder(right));
     if (!additions.length) return [];
-    let assigneeIndex = this.nextAssigneeIndex(latestDone?.assign, assignees);
-    let dueDate = this.nextDueDate(latestDone?.dueDate);
     const created: EditingSchedule[] = [];
     for (const number of additions) {
+      const preceding = scheduled.filter((schedule) => episodeOrder(schedule.number) < episodeOrder(number))
+        .sort((left, right) => episodeOrder(right.number) - episodeOrder(left.number))[0];
+      const assigneeIndex = this.nextAssigneeIndex(preceding?.assign, assignees);
+      const dueDate = this.nextDueDate(preceding?.dueDate);
       const schedule = { number, dueDate, assign: assignees[assigneeIndex].name, status: '' as const };
       await this.schedules.append(schedule);
       created.push(schedule);
-      assigneeIndex = (assigneeIndex + 1) % assignees.length;
-      dueDate = addDays(dueDate, 7);
+      scheduled.push(schedule);
     }
     return created;
   }
@@ -75,7 +77,7 @@ export class EditingScheduleService {
   private nextAssigneeIndex(lastAssign: string | undefined, assignees: EditingAssignee[]): number {
     if (!lastAssign) return 0;
     const index = assignees.findIndex((assignee) => assignee.name === lastAssign);
-    if (index < 0) throw new Error(`The latest done assignee is not in the assignment order: ${lastAssign}`);
+    if (index < 0) throw new Error(`The preceding assignee is not in the assignment order: ${lastAssign}`);
     return (index + 1) % assignees.length;
   }
 

@@ -168,7 +168,7 @@ npm run batch:sync-editing-schedule
 npm run batch:remind-editing-schedule
 ```
 
-`batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加し、最新の `done` 行の担当者の次の人を `editing_schedule_assign_order` の順で割り当てます。新しい `due_date` は最新の `done` 行の締切から7日後、または翌々週の月曜のうち、遅い日付にします。複数件を一度に追加した場合は担当者と締切を1件ずつ順送りします。
+`batch:sync-editing-schedule` は、Driveで見つけた未登録の `#数字` を追加します。担当者は、直前に登録された回（未完了の回を含む）の次の人を `editing_schedule_assign_order` の順で割り当てます。新しい `due_date` は直前に登録された回の締切から7日後、または翌々週の月曜のうち、遅い日付にします。複数件を一度に追加した場合も、回の番号順に担当者と締切を進めます。
 
 手動実行はDiscordで `/poll_rss`、またはプロジェクト内で次のBatchを使います。
 

@@ -11,6 +11,8 @@ function isPayload(value: unknown): value is GatewayPayload {
 export class DiscordGateway {
   private socket: WebSocket | undefined;
   private heartbeat: ReturnType<typeof setInterval> | undefined;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private awaitingHeartbeatAck = false;
   private sequence: number | null = null;
   private sessionId: string | undefined;
   private resumeUrl = gatewayUrl;
@@ -29,17 +31,32 @@ export class DiscordGateway {
   stop(): void {
     this.stopped = true;
     this.clearHeartbeat();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
     this.socket?.close(1000, 'Application shutdown');
   }
 
   private connect(): void {
-    this.socket = new WebSocket(this.resumeUrl);
-    this.socket.onmessage = (event) => { void this.receive(event.data); };
-    this.socket.onclose = () => {
-      this.clearHeartbeat();
-      if (!this.stopped) setTimeout(() => this.connect(), 1_000);
+    const socket = new WebSocket(this.resumeUrl);
+    this.socket = socket;
+    socket.onmessage = (event) => {
+      if (this.socket === socket) void this.receive(event.data);
     };
-    this.socket.onerror = (event) => console.error('Discord Gateway error', event.type);
+    socket.onclose = () => this.scheduleReconnect(socket);
+    socket.onerror = (event) => {
+      console.error('Discord Gateway error', event.type);
+      this.scheduleReconnect(socket);
+    };
+  }
+
+  private scheduleReconnect(socket: WebSocket): void {
+    if (this.stopped || this.socket !== socket || this.reconnectTimer) return;
+    this.clearHeartbeat();
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (!this.stopped && this.socket === socket) this.connect();
+    }, 1_000);
+    if (socket.readyState === WebSocket.OPEN) socket.close();
   }
 
   private async receive(message: unknown): Promise<void> {
@@ -59,7 +76,7 @@ export class DiscordGateway {
       case 0: await this.dispatch(parsed); break;
       case 7: this.socket?.close(); break;
       case 9: this.invalidSession(parsed.d); break;
-      case 11: break;
+      case 11: this.awaitingHeartbeatAck = false; break;
       default: console.warn(`Unhandled Discord Gateway opcode: ${parsed.op}`);
     }
   }
@@ -67,10 +84,12 @@ export class DiscordGateway {
   private hello(data: unknown): void {
     const interval = typeof data === 'object' && data !== null && 'heartbeat_interval' in data
       ? (data as { heartbeat_interval?: unknown }).heartbeat_interval : undefined;
-    if (typeof interval !== 'number') throw new Error('Discord Gateway HELLO did not include heartbeat_interval');
-    this.send({ op: 1, d: this.sequence });
+    if (typeof interval !== 'number' || !Number.isFinite(interval) || interval <= 0) {
+      throw new Error('Discord Gateway HELLO did not include a valid heartbeat_interval');
+    }
     this.clearHeartbeat();
-    this.heartbeat = setInterval(() => this.send({ op: 1, d: this.sequence }), interval);
+    this.sendHeartbeat();
+    this.heartbeat = setInterval(() => this.sendHeartbeat(), interval);
     if (this.sessionId && this.sequence !== null) {
       this.send({ op: 6, d: { token: this.token, session_id: this.sessionId, seq: this.sequence } });
     } else {
@@ -100,8 +119,21 @@ export class DiscordGateway {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(payload));
   }
 
+  private sendHeartbeat(): void {
+    if (!this.socket || this.stopped) return;
+    if (this.awaitingHeartbeatAck) {
+      console.warn('Discord Gateway heartbeat ACK missed; reconnecting');
+      this.scheduleReconnect(this.socket);
+      return;
+    }
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+    this.awaitingHeartbeatAck = true;
+    this.send({ op: 1, d: this.sequence });
+  }
+
   private clearHeartbeat(): void {
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = undefined;
+    this.awaitingHeartbeatAck = false;
   }
 }
